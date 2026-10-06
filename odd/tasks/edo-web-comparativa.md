@@ -280,7 +280,7 @@ Checklist: [x] T0 · [ ] T2 · [ ] T1 · [ ] T3 · [ ] T4 · [ ] T5 · [ ] T6 ·
 ## 12. Workflow state
 
 - TDD: mode unknown (no project/session configuration found; no explicit user choice). Treated as OFF: ordinary functional checks plus tests written alongside the code, no mandatory RED-first. Source: none. Runner: `node --test` (Node v24.15.0 built-in), Python 3.13.5 available for cross-checks. Disclosed to the user in the final report.
-- RDD (receipt-driven development): ON, decided by default (`gentle-ai review mode status`; global unset, clone-local unset). `gentle-ai review assess` on the uncommitted tree returned `risk: high / unassessable` because untracked files (the PDFs) need an explicit declaration. Per commit, read `review_due`; relay consent envelopes losslessly to the user; if the user declines for a candidate, follow the RDD-off verification path (assess tier, writer self-verification plus independent verifier for high). Never toggle the mode on the user's behalf. First boundary: `19c08be`.
+- RDD (receipt-driven development): ON, decided by default (`gentle-ai review mode status`; global unset, clone-local unset). `gentle-ai review assess` without a declaration returns `risk: high / unassessable` because untracked files (the PDFs) need an explicit declaration; always pass `--untracked-scope=exclude --expected-untracked-inventory=sha256:be3f6162857dd7d9ce0e2542a45c2dcde72a33a1600d9f532f60008cbf21f01e` (the canonical inventory reported by `gentle-ai review status`; it changes only if the untracked files change, then re-read it). Per commit, read `review_due`; relay consent envelopes losslessly to the user; if the user declines for a candidate, follow the RDD-off verification path (assess tier, writer self-verification plus independent verifier for high). Never toggle the mode on the user's behalf. First boundary: `19c08be`.
 - Delivery: forecast ≈ 5,500 authored lines (additions+deletions, no generated files) across T1-T8, far above the ~400 heuristic. No remote and no PR requested, so no PR chain is planned; slices are the per-task work-unit commits on the feature branch. Ask the user at the end whether they want a PR chain/merge. Never push.
 - Git: an empty repo appeared in the folder during this session (created 15:27:07, about when `gentle-ai review assess` ran; it was not present at session start). The orchestrator made the root commit `19c08be` and the branch `feat/edo-web-comparativa`. PDFs and `PROMPT_Y_CONTEXTO.md` stay untracked on purpose (course material; not to be published by accident). Stage explicit paths only (`git add web odd PRODUCT.md`).
 - Language: chat in the user's language (Rioplatense Spanish); artifacts follow constraint 4.
@@ -292,9 +292,11 @@ Checklist: [x] T0 · [ ] T2 · [ ] T1 · [ ] T3 · [ ] T4 · [ ] T5 · [ ] T6 ·
 |---|---|---|
 | 2026-10-06 | Rubric read inline; 3 course PDFs + out-of-scope PDF mapped by a subagent | digest in section 5 |
 | 2026-10-06 | Digest oracles recomputed in Node (Ej.1-4, practice rows marked ✓, comparison table) | `ALL DIGEST VALUES CONFIRMED` |
-| 2026-10-06 | T0 files written | this file, `PRODUCT.md` |
+| 2026-10-06 | T0 files written and committed | commit `0c40da8` (`docs: add ODD feature document and product context`) |
+| 2026-10-06 | T0 review gating | `gentle-ai review assess --cwd . --agent claude-code --base-ref 19c08be --committed-only --untracked-scope=exclude --expected-untracked-inventory=sha256:be3f6162857dd7d9ce0e2542a45c2dcde72a33a1600d9f532f60008cbf21f01e --json`: `risk: passive`, `review_due: false` (non_executable_only). Reviewed boundary advances to `0c40da8`. |
+| 2026-10-06 | T2 delegated | one fresh writer (sonnet) launched in background; scope `web/js/numerics/`, `web/tests/` |
 
-Next step: commit T0, then delegate T2 (numerics core + tests) to a fresh writer, then verify independently.
+Next step: when the T2 writer returns: spot-check re-run of `node --test web/tests/`, independent verifier (fresh agent: high-precision cross-check of the headline numbers and a code read of the parser/diff), commit (`feat(numerics): ...`), assess with the flags above (base-ref = last reviewed boundary), then T1.
 
 ## 14. Open items for the user (do not invent)
 
