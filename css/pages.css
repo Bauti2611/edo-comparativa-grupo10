@@ -1,0 +1,188 @@
+/*
+ * Page-level layout: the page wrapper and its one entrance, the Inicio title block and the reserved
+ * "El paso" slot, stub markers, and the hidden style guide (#/_ui).
+ */
+
+/* ---- Page wrapper: the single authored motion (an exponential ease-out on route change) --------------- */
+
+.page {
+  animation: page-in var(--dur-2) var(--ease-out) both;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.stub-note {
+  margin-top: var(--space-m);
+  color: var(--ink-3);
+  font-size: var(--step--1);
+}
+
+/* ---- Inicio ------------------------------------------------------------------------------------------------- */
+
+.title-block {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2xs);
+  max-width: 62rem;
+  margin-bottom: var(--space-xl);
+}
+
+.title-block__title {
+  max-width: 17em;
+  font-size: var(--step-5);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+}
+
+.title-block__group {
+  margin-top: var(--space-s);
+  font-size: var(--step-2);
+  font-weight: 700;
+  line-height: var(--lh-snug);
+}
+
+.title-block__line {
+  max-width: 64ch;
+  color: var(--ink-2);
+}
+
+.meta-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.25rem;
+  margin: var(--space-xs) 0 0;
+}
+
+.meta-list__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-xs);
+}
+
+.meta-list dt {
+  min-width: 7rem;
+  color: var(--ink-3);
+}
+
+.meta-list dd {
+  margin: 0;
+}
+
+/* The slot where the signature "El paso" diagram will live (a later task fills it). */
+.paso-slot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  justify-items: center;
+  gap: var(--space-2xs);
+  min-height: clamp(16rem, 36vw, 26rem);
+  padding: var(--space-l);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-l);
+  background-color: var(--surface);
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 1.5rem 1.5rem;
+  text-align: center;
+}
+
+.paso-slot__title {
+  font-size: var(--step-3);
+}
+
+.paso-slot__hint {
+  max-width: 44ch;
+  color: var(--ink-2);
+}
+
+/* ---- Style guide (#/_ui) ---------------------------------------------------------------------------------------- */
+
+.sg {
+  --gap: var(--space-l);
+}
+
+.sg-toc ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sg-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-m);
+  padding-top: var(--space-l);
+  border-top: 1px solid var(--border);
+}
+
+.sg-swatches {
+  display: grid;
+  gap: var(--space-s);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+}
+
+.sg-swatch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--step--1);
+  line-height: var(--lh-snug);
+}
+
+.sg-swatch__chip {
+  flex: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-s);
+}
+
+.sg-demo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2xs);
+}
+
+.sg-demo__label {
+  color: var(--ink-3);
+  font-size: var(--step--1);
+}
+
+.sg-demo__body {
+  min-width: 0;
+  padding: var(--space-s);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-m);
+}
+
+.sg-legend {
+  display: grid;
+  gap: var(--space-2xs) var(--space-l);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+}
+
+.sg-legend__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.sg-nums {
+  font-size: var(--step-2);
+  line-height: 1.3;
+}
+
+.sg-fieldset {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2xs);
+}

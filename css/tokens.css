@@ -1,0 +1,195 @@
+/*
+ * Design tokens. Everything else in css/ reads these custom properties and nothing else.
+ *
+ * Direction (see odd/tasks/edo-web-comparativa.md, section 7): restrained cool near-white paper and
+ * blue-black ink; ONE functional accent, the highlighter yellow (--hl*), reserved for marking a result or
+ * a generic formula; data colours are fixed per method (Okabe-Ito derived) and always paired with a marker
+ * shape and a dash pattern, so they survive grayscale and projection. UI controls are ink/neutral.
+ *
+ * Theme switching: the inline script in index.html (and app.js) sets, on <html>:
+ *   data-theme  = auto | light | dark   (the preference)
+ *   data-scheme = light | dark          (the resolved scheme; auto follows prefers-color-scheme)
+ *   data-mode   = normal | projection   (projection: root size x1.375, larger controls, stronger contrast)
+ * Contrast of every text/graphic pair is checked by a script against these values (WCAG AA).
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ---- Typefaces ------------------------------------------------------------------------------ */
+  /* The web font is progressive enhancement (deps.js injects it after the first paint). */
+  --font-sans: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* ---- Type scale (rem, so projection mode scales everything) ------------------------------------- */
+  --step--2: 0.75rem;
+  --step--1: 0.875rem;
+  --step-0: 1rem;
+  --step-1: 1.1875rem;
+  --step-2: 1.4375rem;
+  --step-3: 1.8125rem;
+  --step-4: clamp(1.875rem, 1.5rem + 1.6vw, 2.5rem);
+  --step-5: clamp(2.125rem, 1.35rem + 3.2vw, 3.5rem);
+  --lh-body: 1.6;
+  --lh-snug: 1.35;
+  --lh-tight: 1.12;
+  --measure: 72ch;
+
+  /* ---- Surfaces ------------------------------------------------------------------------------------ */
+  --paper: #f5f7fa;
+  --surface: #ffffff;
+  --sunken: #eceff4;
+  --bar-bg: var(--surface);
+  --overlay: rgba(11, 18, 32, 0.55);
+
+  /* ---- Ink ------------------------------------------------------------------------------------------- */
+  --ink: #0f1a2b;
+  --ink-2: #37465c;
+  --ink-3: #4f5e75;
+  --on-ink: #ffffff;
+
+  /* ---- Lines ----------------------------------------------------------------------------------------- */
+  --border: #d3dae5;
+  --border-strong: #6f7c91;
+
+  /* ---- Highlighter (the one accent: "this is the value or formula you write down") -------------- */
+  --hl: #ffe566;
+  --hl-soft: #fff6c4;
+  --hl-edge: #d6b300;
+
+  /* ---- Method data colours (Okabe-Ito derived) ---------------------------------------------------- */
+  --m-euler: #5f6a7e;
+  --m-taylor: #d55e00;
+  --m-heun: #008c64;
+  --m-rk2: #0072b2;
+  --m-exact: var(--ink);
+
+  /* ---- Status (never used for methods) --------------------------------------------------------------- */
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+
+  /* ---- Misc UI ----------------------------------------------------------------------------------------- */
+  --selection: #c9d7ee;
+  --focus: var(--ink);
+
+  /* ---- Charts (read by charts.js) ----------------------------------------------------------------- */
+  --chart-text: var(--ink-2);
+  --chart-grid: #dfe5ee;
+  --chart-axis: var(--border-strong);
+  --chart-tip-bg: #0f1a2b;
+  --chart-tip-fg: #ffffff;
+  --chart-font: 0.8125rem;
+  --chart-line: 2.25;
+  --chart-point: 4;
+  --chart-h: clamp(17rem, 30vw, 25rem);
+
+  /* ---- Space, shape, depth --------------------------------------------------------------------------- */
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs: 0.75rem;
+  --space-s: 1rem;
+  --space-m: 1.5rem;
+  --space-l: 2rem;
+  --space-xl: 3rem;
+  --space-2xl: 4.5rem;
+  --radius-s: 0.375rem;
+  --radius-m: 0.625rem;
+  --radius-l: 1rem;
+  --radius-pill: 999px;
+  --shadow-s: 0 1px 2px rgba(15, 26, 43, 0.07), 0 1px 1px rgba(15, 26, 43, 0.04);
+  --shadow-m: 0 8px 20px -6px rgba(15, 26, 43, 0.18), 0 2px 5px rgba(15, 26, 43, 0.08);
+
+  /* ---- Motion -------------------------------------------------------------------------------------------- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-1: 120ms;
+  --dur-2: 240ms;
+
+  /* ---- Layout ---------------------------------------------------------------------------------------------- */
+  --bar-h: 3.5rem;
+  --gutter: clamp(1rem, 0.5rem + 2vw, 2rem);
+  --content-max: 80rem;
+  --control-h: 2.5rem;
+  --focus-w: 3px;
+  --focus-offset: 2px;
+}
+
+/* Touch screens: bigger targets. */
+@media (pointer: coarse) {
+  :root {
+    --control-h: 2.75rem;
+  }
+}
+
+/* ---- Dark scheme ------------------------------------------------------------------------------------ */
+html[data-scheme="dark"] {
+  color-scheme: dark;
+
+  --paper: #0c121d;
+  --surface: #141c2b;
+  --sunken: #0a0f18;
+  --overlay: rgba(2, 5, 10, 0.7);
+
+  --ink: #e9eef7;
+  --ink-2: #b9c4d6;
+  --ink-3: #97a5bb;
+  --on-ink: #0c121d;
+
+  --border: #2a364b;
+  --border-strong: #66758f;
+
+  --hl: rgba(255, 214, 10, 0.27);
+  --hl-soft: rgba(255, 214, 10, 0.14);
+  --hl-edge: rgba(255, 214, 10, 0.55);
+
+  --m-euler: #9aa5b6;
+  --m-taylor: #ee7a2e;
+  --m-heun: #2bb890;
+  --m-rk2: #4da3dc;
+
+  --danger: #ff8a80;
+  --danger-soft: rgba(255, 138, 128, 0.12);
+
+  --selection: #2d4466;
+
+  --chart-grid: #243046;
+  --chart-tip-bg: #e9eef7;
+  --chart-tip-fg: #0c121d;
+
+  --shadow-s: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-m: 0 10px 24px -6px rgba(0, 0, 0, 0.65), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* ---- Projection mode: size ---------------------------------------------------------------------------- */
+html[data-mode="projection"] {
+  font-size: 137.5%; /* 22px at the default 16px: every rem-based size, control and chart font grows with it */
+
+  --bar-h: 4rem;
+  --control-h: 3rem;
+  --focus-w: 4px;
+  --focus-offset: 3px;
+  --chart-font: 0.9375rem;
+  --chart-line: 3.5;
+  --chart-point: 5.5;
+  --chart-h: clamp(19rem, 34vw, 28rem);
+  --lh-body: 1.55;
+  --measure: 68ch;
+}
+
+/* ---- Projection mode: stronger contrast (projectors wash out light grays and thin lines) --------------- */
+html[data-mode="projection"][data-scheme="light"] {
+  --ink-2: #26344a;
+  --ink-3: #3a4960;
+  --border: #b9c3d3;
+  --border-strong: #56637a;
+  --m-euler: #4f5a6e;
+  --chart-grid: #cdd5e1;
+}
+
+html[data-mode="projection"][data-scheme="dark"] {
+  --ink-2: #cdd6e4;
+  --ink-3: #b0bccf;
+  --border: #3a4863;
+  --border-strong: #8393ad;
+  --m-euler: #b3bdcc;
+  --chart-grid: #34425c;
+}
