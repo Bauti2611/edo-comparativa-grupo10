@@ -2,7 +2,7 @@
 
 - Created: 2026-10-06 · Branch: `feat/edo-web-comparativa` (base `19c08be`, empty root commit) · Project: `edo_comparativa_taylor_euler_rk2-claude`
 - Engram mirror: topic `odd/edo-web-comparativa/tasks` (full copy of this file; resync after every task)
-- Status: IN PROGRESS · Current task: T2 · Next step: see section 13
+- Status: IN PROGRESS · T0 and T2 done and committed · pending: native review consent for the T2 slice · next task: T1 · see section 13
 
 ## 1. Objective
 
@@ -215,6 +215,19 @@ EDO.analysis
 
 Everything numerically relevant runs at full float64; formatting happens only at display time.
 
+### 6.3 Implemented API deltas (T2; authoritative over 6.2 where they differ)
+
+- Classic-script load order: `expr.js`, `format.js`, `problems.js`, `methods.js`, `analysis.js` (UMD; each also `require`s in Node). Sources contain UTF-8: pages need `<meta charset="utf-8">`.
+- `step.detail` is FLAT per method: euler `{slope}`; taylor `{derivs, terms}`; heun `{slope, yPred, slopeEnd, slopeAvg}`; rk2 `{k1, xMid, yMid, slopeMid}`. Read `detail.slope`, never `detail.euler.slope`.
+- Method ids: `euler`, `taylor` (+ `{order}`), `taylor3`, `taylor4` (also valid ids), `heun`, `rk2`. `methods.byId`, `methods.costPerStep(id, order)` (Taylor-p costs p(p+1)/2).
+- Diverged runs: `solution.N` is the number of finite steps; also `requestedN`, `diverged`, `message`.
+- `expr.totalDerivative(node)` returns a node that remembers its `f`, so repeating it is correct; it also accepts `{f}`. `expr.derivatives(f, k)` and `problem.derivNodes(k)` return y'' … y^(k) correctly. `problem.fx()` / `fy()` return Nodes; `problem.derivFns(k)` returns compiled functions; `problem.handNode()` returns the hand-derived y'' when the preset has one.
+- Extra exports: expr `dependsOn`, `normalizeIndep`, `nodeKey`, `N{builders}`, `EDOError`, `EDOParseError`; format `sci`; problems `exactFromString`, `fromPreset(id, overrides)`, `GROUPS`; analysis `workPrecision`, `convergence().Ns`, `localErrorConstants().fyD`.
+- `toTeX(node, {indep, numFmt, style})`: `numFmt` is a function for numeric literals; `style:'catedra'` gives the handout look (`2\cdot (1 + 0.1/2)`). `\cdot` precedes any numeric literal (avoids "x2").
+- Simplifier expands monomial×sum and small polynomial products (`(x+1)(x-1)` → `x²−1`). Typed decimals stay decimals, except reciprocals and powers of decimal literals (`1/1.5` → `2/3`).
+- Presets (28) use `xf` (= targetX) and `N`; Taylor presets carry `order: 2`; the printed errata values appear only in negative assertions. The parser also accepts `[]`, decimal comma, `senh`/`arcsen`, and the symbols −, ×, ·, ÷, π.
+- Tests: `web/tests/index.js` aggregates `*.test.js` so that `node --test web/tests/` works (Node ≥ 22 treats a directory argument as a module).
+
 ## 7. Design direction (pinned by the brief; Operate + Read surface)
 
 - The brief pins the look: "limpio, moderno y responsivo", light/dark, modo proyección. The skill's decision-round/concept-roll ceremony was skipped on purpose (brief-pinned direction; user said to proceed). Disclose this in the final report.
@@ -253,7 +266,7 @@ Delegation route for substantial work: one fresh bounded writer per task (mandat
 
 Per-task closure: writer reports `<command>: <observed result>`; parent re-runs one command as a spot check; checkbox flipped only after observation; one or more work-unit commits (Conventional Commits, no attribution); `gentle-ai review assess --cwd . --agent claude-code --base-ref <last reviewed boundary> --committed-only --json` read for `review_due`; update this file and the Engram mirror.
 
-Checklist: [x] T0 · [ ] T2 · [ ] T1 · [ ] T3 · [ ] T4 · [ ] T5 · [ ] T6 · [ ] T7 · [ ] T8
+Checklist: [x] T0 · [x] T2 · [ ] T1 · [ ] T3 · [ ] T4 · [ ] T5 · [ ] T6 · [ ] T7 · [ ] T8
 
 ## 10. Global acceptance criteria
 
@@ -280,7 +293,7 @@ Checklist: [x] T0 · [ ] T2 · [ ] T1 · [ ] T3 · [ ] T4 · [ ] T5 · [ ] T6 ·
 ## 12. Workflow state
 
 - TDD: mode unknown (no project/session configuration found; no explicit user choice). Treated as OFF: ordinary functional checks plus tests written alongside the code, no mandatory RED-first. Source: none. Runner: `node --test` (Node v24.15.0 built-in), Python 3.13.5 available for cross-checks. Disclosed to the user in the final report.
-- RDD (receipt-driven development): ON, decided by default (`gentle-ai review mode status`; global unset, clone-local unset). `gentle-ai review assess` without a declaration returns `risk: high / unassessable` because untracked files (the PDFs) need an explicit declaration; always pass `--untracked-scope=exclude --expected-untracked-inventory=sha256:be3f6162857dd7d9ce0e2542a45c2dcde72a33a1600d9f532f60008cbf21f01e` (the canonical inventory reported by `gentle-ai review status`; it changes only if the untracked files change, then re-read it). Per commit, read `review_due`; relay consent envelopes losslessly to the user; if the user declines for a candidate, follow the RDD-off verification path (assess tier, writer self-verification plus independent verifier for high). Never toggle the mode on the user's behalf. First boundary: `19c08be`.
+- RDD (receipt-driven development): ON, decided by default (`gentle-ai review mode status`; global unset, clone-local unset). `gentle-ai review assess` without a declaration returns `risk: high / unassessable` because untracked files (the PDFs) need an explicit declaration; always pass `--untracked-scope=exclude --expected-untracked-inventory=sha256:be3f6162857dd7d9ce0e2542a45c2dcde72a33a1600d9f532f60008cbf21f01e` (the canonical inventory reported by `gentle-ai review status`; it changes only if the untracked files change, then re-read it). Per commit, read `review_due`; relay consent envelopes losslessly to the user; if the user declines for a candidate, follow the RDD-off verification path (assess tier, writer self-verification plus independent verifier for high). Never toggle the mode on the user's behalf. Reviewed boundary: `da1affa` (T0 docs commits were passive; the later slice is pending review). With a clean tree no untracked-inventory flags are needed; re-add them if untracked files appear. The user was told about the RDD consent pauses and can say "desactivá RDD" to stop them.
 - Delivery: forecast ≈ 5,500 authored lines (additions+deletions, no generated files) across T1-T8, far above the ~400 heuristic. No remote and no PR requested, so no PR chain is planned; slices are the per-task work-unit commits on the feature branch. Ask the user at the end whether they want a PR chain/merge. Never push.
 - Git: an empty repo appeared in the folder during this session (created 15:27:07, about when `gentle-ai review assess` ran; it was not present at session start). The orchestrator made the root commit `19c08be` and the branch `feat/edo-web-comparativa`. PDFs and `PROMPT_Y_CONTEXTO.md` stay untracked on purpose (course material; not to be published by accident). Stage explicit paths only (`git add web odd PRODUCT.md`).
 - Language: chat in the user's language (Rioplatense Spanish); artifacts follow constraint 4.
@@ -294,9 +307,15 @@ Checklist: [x] T0 · [ ] T2 · [ ] T1 · [ ] T3 · [ ] T4 · [ ] T5 · [ ] T6 ·
 | 2026-10-06 | Digest oracles recomputed in Node (Ej.1-4, practice rows marked ✓, comparison table) | `ALL DIGEST VALUES CONFIRMED` |
 | 2026-10-06 | T0 files written and committed | commit `0c40da8` (`docs: add ODD feature document and product context`) |
 | 2026-10-06 | T0 review gating | `gentle-ai review assess --cwd . --agent claude-code --base-ref 19c08be --committed-only --untracked-scope=exclude --expected-untracked-inventory=sha256:be3f6162857dd7d9ce0e2542a45c2dcde72a33a1600d9f532f60008cbf21f01e --json`: `risk: passive`, `review_due: false` (non_executable_only). Reviewed boundary advances to `0c40da8`. |
-| 2026-10-06 | T2 delegated | one fresh writer (sonnet) launched in background; scope `web/js/numerics/`, `web/tests/` |
+| 2026-10-06 | T2 delegated | one fresh writer (sonnet), background, 51 min, 153 tool calls; scope `web/js/numerics/`, `web/tests/` (route: delegated; triggers: 2+ non-trivial files and reading that prepares a write) |
+| 2026-10-06 | T2 writer report | 556/556 tests; 28 presets; all 24 closed forms pass IC and ODE residual < 1e-7; no course fact found wrong; 13 deviations absorbed in section 6.3 |
+| 2026-10-06 | T2 parent spot check | `node --test web/tests/`: 556 tests, 556 pass, 0 fail (also on the committed tree); `rg "eval\(\|new Function" web/js`: no matches |
+| 2026-10-06 | T2 independent cross-check (parent, built before reading the code) | scratchpad `oracle.py` (sympy+mpmath, 50 digits) vs `compare.js`: 18 cases × 6 methods (630 step checks) + parser edge cases + 70 random expressions (diff, totalDerivative ×2, toString round-trip, toTeX braces): 1,912 checks, worst relative deviation 4.35e-16, `ALL CROSS-CHECKS PASSED`; the 14 closed forms re-verified at 50 digits (residual < 1e-50) |
+| 2026-10-06 | T2 commits | `393932e feat(numerics): add expression parser, symbolic differentiation and number formatting` (isolated run: 345 pass); `86b7e8a feat(numerics): add ODE methods, preset library and error analysis` |
+| 2026-10-06 | T2 review gating | `gentle-ai review assess --cwd . --agent claude-code --base-ref da1affa --committed-only --json`: `risk: medium` (configuration_change `.atl/.skill-registry.cache.json`), 22 paths, 4,541 lines, `review_due: true` (`slice_budget_reached`). Slice = `94f493f`, `75536de`, `393932e`, `86b7e8a`. Consent for the native review is pending with the user. |
+| 2026-10-06 | QA tooling built (scratchpad, session-only) | `qa/qa.mjs`: headless Chrome/Edge over CDP, real `file://`, console errors/exceptions/failed requests, screenshots, actions. Findings: the built-in browser pane only DISPLAYS local files (page tools refuse them) so QA uses `qa.mjs`; ES modules are BLOCKED on `file://` (CORS) confirming constraint 1; `localStorage` works on `file://`; CDN URLs verified: jsDelivr `katex@0.16.11` (css, js, auto-render, fonts) and `chart.js@4.4.7/dist/chart.umd.min.js` respond OK; cdnjs Chart.js path did not. Move `oracle.py`, `compare.js`, `qa.mjs` into `web/tests/crosscheck/` (relative paths) during T8. |
 
-Next step: when the T2 writer returns: spot-check re-run of `node --test web/tests/`, independent verifier (fresh agent: high-precision cross-check of the headline numbers and a code read of the parser/diff), commit (`feat(numerics): ...`), assess with the flags above (base-ref = last reviewed boundary), then T1.
+Next step: resolve the native review consent for the T2 slice (relay the envelope to the user and wait), then T1 (shell and design system) with a fresh writer.
 
 ## 14. Open items for the user (do not invent)
 
