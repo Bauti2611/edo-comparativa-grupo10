@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="es" data-theme="auto" data-scheme="light" data-mode="normal">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Taylor, Euler Mejorado y RK2 · Grupo 10</title>
+  <meta name="description" content="Comparativa de los métodos de Taylor, Euler Mejorado y RK2 para problemas de valor inicial. Grupo 10, U.T.N. Facultad Regional La Plata.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f5f7fa" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0c121d" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M3 28C14 27 23 21 29 5' fill='none' stroke='%230f1a2b' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='9.4' cy='26.4' r='3.6' fill='%23d55e00'/%3E%3Cpath d='M19.2 17.2l3.7 6.4h-7.4z' fill='%23008c64'/%3E%3Cpath d='M26.7 7l3.6 3.6-3.6 3.6-3.6-3.6z' fill='%230072b2'/%3E%3C/svg%3E">
+
+  <!--
+    Runs before the first paint: applies the saved theme and mode (or the session-only URL overrides
+    ?theme=dark|light|auto and ?mode=projection|normal, which are never persisted) so there is no flash.
+    All storage access is guarded. Keep the storage key in sync with js/ui/prefs.js.
+  -->
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var theme = 'auto';
+      var mode = 'normal';
+      try {
+        var stored = JSON.parse(window.localStorage.getItem('edo.g10.prefs.v1') || 'null');
+        if (stored) {
+          if (stored.theme === 'light' || stored.theme === 'dark' || stored.theme === 'auto') theme = stored.theme;
+          if (stored.mode === 'projection' || stored.mode === 'normal') mode = stored.mode;
+        }
+      } catch (e) { /* storage blocked or corrupted: defaults apply */ }
+      try {
+        var pairs = window.location.search.replace(/^\?/, '').split('&');
+        for (var i = 0; i < pairs.length; i++) {
+          var pair = pairs[i].split('=');
+          var value = decodeURIComponent(pair[1] || '');
+          if (pair[0] === 'theme' && (value === 'light' || value === 'dark' || value === 'auto')) theme = value;
+          if (pair[0] === 'mode' && (value === 'projection' || value === 'normal')) mode = value;
+        }
+      } catch (e) { /* malformed query: ignore the overrides */ }
+      var dark = false;
+      try { dark = window.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { /* no matchMedia */ }
+      root.setAttribute('data-theme', theme);
+      root.setAttribute('data-mode', mode);
+      root.setAttribute('data-scheme', theme === 'dark' || (theme === 'auto' && dark) ? 'dark' : 'light');
+    })();
+  </script>
+
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+  <a class="skip-link" href="#app">Saltar al contenido</a>
+
+  <header class="site-header" id="site-header">
+    <div class="site-header__inner container">
+      <a class="brand" href="#/inicio">
+        <!-- Mark: the three methods taking a step along the exact curve (circle: Taylor, triangle: Euler Mejorado, diamond: RK2). -->
+        <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <path d="M3 28C14 27 23 21 29 5" fill="none" stroke-width="1.8" stroke-linecap="round" style="stroke: var(--ink)"/>
+          <circle cx="9.4" cy="26.4" r="3.6" style="fill: var(--m-taylor)"/>
+          <path d="M19.2 17.2l3.7 6.4h-7.4z" style="fill: var(--m-heun)"/>
+          <path d="M26.7 7l3.6 3.6-3.6 3.6-3.6-3.6z" style="fill: var(--m-rk2)"/>
+        </svg>
+        <span class="brand__text">
+          <span class="brand__title">Métodos para PVI</span>
+          <span class="brand__sub">Grupo 10</span>
+        </span>
+      </a>
+
+      <nav class="site-nav" id="site-nav" aria-label="Secciones">
+        <ul class="site-nav__list" id="nav-list" role="list"></ul>
+      </nav>
+
+      <div class="site-actions">
+        <!-- Reserved for the presentation timer (filled in a later task). -->
+        <div class="timer-slot" id="timer-slot"></div>
+        <button class="icon-btn" id="theme-btn" type="button" aria-label="Cambiar el tema"></button>
+        <button class="icon-btn" id="mode-btn" type="button" aria-label="Modo proyección" aria-pressed="false"></button>
+        <button class="icon-btn" id="help-btn" type="button" aria-label="Ayuda y atajos de teclado" aria-haspopup="dialog"></button>
+        <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-label="Abrir el menú de secciones" aria-controls="site-nav" aria-expanded="false"></button>
+      </div>
+    </div>
+  </header>
+
+  <main id="app" class="app container" tabindex="-1">
+    <noscript>
+      <p class="stub-note">Esta aplicación necesita JavaScript. Active JavaScript en el navegador y vuelva a cargar la página.</p>
+    </noscript>
+  </main>
+
+  <div id="route-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <footer class="site-footer">
+    <div class="site-footer__inner container" id="footer-meta"></div>
+  </footer>
+
+  <!-- Classic scripts only: ES modules are blocked on file://. Order matters (see README). -->
+  <script src="js/config.js"></script>
+  <script src="js/deps.js"></script>
+
+  <script src="js/numerics/expr.js"></script>
+  <script src="js/numerics/format.js"></script>
+  <script src="js/numerics/problems.js"></script>
+  <script src="js/numerics/methods.js"></script>
+  <script src="js/numerics/analysis.js"></script>
+
+  <script src="js/ui/bus.js"></script>
+  <script src="js/ui/prefs.js"></script>
+  <script src="js/ui/route.js"></script>
+  <script src="js/ui/dom.js"></script>
+  <script src="js/ui/tex.js"></script>
+  <script src="js/ui/charts.js"></script>
+  <script src="js/ui/app.js"></script>
+
+  <script src="js/ui/pages/home.js"></script>
+  <script src="js/ui/pages/theory.js"></script>
+  <script src="js/ui/pages/exercises.js"></script>
+  <script src="js/ui/pages/simulator.js"></script>
+  <script src="js/ui/pages/compare.js"></script>
+  <script src="js/ui/pages/audience.js"></script>
+  <script src="js/ui/pages/sources.js"></script>
+  <script src="js/ui/pages/styleguide.js"></script>
+
+  <script src="js/ui/start.js"></script>
+</body>
+</html>
