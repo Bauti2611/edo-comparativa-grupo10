@@ -534,7 +534,7 @@
 
       // Error brackets: one vertical segment per method from its y_{n+1} to the exact value, side by side.
       const list = o.brackets || [];
-      const gap = Math.max(6, size * 0.5);
+      const gap = Math.max(8, size * 0.75);
       const cap = Math.max(3, size * 0.24);
       const first = px1 + (o.clear || 8);
       list.forEach((b, i) => {
@@ -578,9 +578,16 @@
       const shown = items
         .map((item) => Object.assign(item, { text: item.texts.find((t) => ctx.measureText(t).width <= room) }))
         .filter((item) => item.text);
-      const rows = spreadLabels(shown.map((s) => s.y), size * 1.3, area.top + size * 0.7, area.bottom - size * 0.7);
+      const rows = spreadLabels(shown.map((s) => s.y), size * 1.6, area.top + size * 0.8, area.bottom - size * 0.8);
       const halo = cssVar('--surface', '#ffffff');
       shown.forEach((item, i) => {
+        // A plate in the surface colour under marker and text, so the slope field never runs through a label.
+        ctx.save();
+        ctx.globalAlpha = 0.92;
+        ctx.fillStyle = halo;
+        const left = markerX - radius - 4;
+        ctx.fillRect(left, rows[i] - size * 0.75, textX + ctx.measureText(item.text).width + 4 - left, size * 1.5);
+        ctx.restore();
         ctx.fillStyle = item.color;
         drawMarker(ctx, item.shape, markerX, rows[i], radius);
         ctx.font = `${size}px ${family}`;

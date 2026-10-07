@@ -59,7 +59,7 @@
 
   /** A value as the tables show it: `decimals` decimals, truncated (the apunte's way) or rounded. */
   function show(v, mode, decimals) {
-    return format.num(v, { decimals: decimals === undefined ? 6 : decimals, mode: mode === 'round' ? 'round' : 'trunc' });
+    return format.num(v, { decimals: decimals === undefined ? 6 : decimals, mode: mode === 'round' ? 'round' : 'trunc', trim: false });
   }
 
   /** An error: always rounded (it is our addition, not a value of the apunte), scientific when it is tiny or huge. */
@@ -68,7 +68,7 @@
     if (v === 0) return '0';
     const a = Math.abs(v);
     if (a < 1e-4 || a >= 1e4) return format.sci(v, { digits: 3, trim: false });
-    return format.num(v, { decimals: 6, mode: 'round' });
+    return format.num(v, { decimals: 6, mode: 'round', trim: false });
   }
 
   /** A relative error as a percentage, with 3 significant digits (null when it is not defined). */

@@ -16,7 +16,7 @@
  *   EDO.app.current()                              {page, sub, query} (a copy)
  *   EDO.app.announce(text)                         polite screen-reader announcement
  *   EDO.app.addHelp(keys, description)             adds a row to the '?' shortcuts dialog (keys: string or string[])
- *   EDO.app.fitBar()                               re-measure the top bar (call after changing #timer-slot content)
+ *   EDO.app.fitBar()                               re-measure the top bar (call after changing the bar content)
  *   EDO.app.ready                                  false until the first route has been rendered, then true
  *
  * Shell behaviour: sets <html data-theme="auto|light|dark" data-scheme="light|dark" data-mode="normal|projection">,
@@ -504,8 +504,6 @@
     if (typeof root.ResizeObserver === 'function') {
       const observer = new root.ResizeObserver(scheduleFit);
       observer.observe(els.header.firstElementChild);
-      const slot = $('#timer-slot');
-      if (slot) observer.observe(slot);
     } else {
       root.addEventListener('resize', scheduleFit);
     }

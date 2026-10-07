@@ -385,7 +385,8 @@
   /* ---- Tables --------------------------------------------------------------------------------------------- */
 
   const showX = (v) => format.num(v, { decimals: 10, mode: 'round' });
-  const showY = (v, o) => format.num(v, { decimals: o.decimals, mode: o.mode });
+  // Trailing zeros kept so the columns line up (1.2000 above 1.5427).
+  const showY = (v, o) => format.num(v, { decimals: o.decimals, mode: o.mode, trim: false });
 
   /** Columns of intermediate values of a method, from `step.detail` (the engine's own numbers). */
   function detailColumns(sol) {

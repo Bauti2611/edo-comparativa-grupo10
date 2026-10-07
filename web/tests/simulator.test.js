@@ -222,7 +222,7 @@ describe('simulator results: the cátedra oracle (Ej. 1, Taylor de grado 2)', ()
     const last = (opts) => S.resultsTable(run, opts).rows[3];
     assert.deepEqual(last({ decimals: 4, mode: 'round' }), ['3', '1.3', '1.9728']);
     assert.deepEqual(last({ decimals: 4, mode: 'trunc' }), ['3', '1.3', '1.9727']);
-    assert.deepEqual(S.resultsTable(run, { decimals: 4, mode: 'trunc' }).rows[1], ['1', '1.1', '1.23']);
+    assert.deepEqual(S.resultsTable(run, { decimals: 4, mode: 'trunc' }).rows[1], ['1', '1.1', '1.2300']);
   });
 
   it('builds the CSV with a header and full-precision rows', () => {
@@ -262,9 +262,9 @@ describe('simulator results: methods, intermediate values and references', () =>
     assert.ok(full.columns.length > plain.columns.length);
     const k1 = full.columns.findIndex((c) => c.text === 'k' && c.sub === '1');
     assert.ok(k1 > 0);
-    assert.equal(full.rows[0][k1], '0.2');
+    assert.equal(full.rows[0][k1], '0.2000');
     assert.equal(full.rows[3][k1], '', 'the last row has no step after it');
-    assert.equal(full.rows[1][2], '1.231');
+    assert.equal(full.rows[1][2], '1.2310');
   });
 
   it('adds y\' and y\'\' for Taylor and the predictor and slopes for Euler Mejorado', () => {

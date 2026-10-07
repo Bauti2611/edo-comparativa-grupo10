@@ -35,7 +35,7 @@ Put the flags in the URL query, before the `#` route, for example `index.html?no
 | `?theme=dark`, `light`, `auto` | Theme for this session only; never saved. |
 | `?mode=projection`, `normal` | Projection mode for this session only; never saved. |
 
-Keys: `P` toggles the projection mode, `T` starts or pauses the presentation timer, `?` opens the shortcut list, `←` and `→` change section (projection mode
+Keys: `P` toggles the projection mode, `?` opens the shortcut list, `←` and `→` change section (projection mode
 only, never while typing in a field). The theme button cycles auto, light and dark; both choices are saved in
 `localStorage` (key `edo.g10.prefs.v1`), with an in-memory fallback when storage is blocked.
 
@@ -62,7 +62,7 @@ web/
       charts.js         Chart.js wrapper with a data-table fallback and method styles
       step-diagram.js   "El paso": one step drawn three ways on a slope field (Inicio, Teoría)
       steps-model.js steps.js    step-by-step solutions in the cátedra's layout
-      timer.js          presentation timer in the top bar (pure state machine + mount)
+      agenda.js         time budget of the talk per section (Inicio)
       app.js            router, page registry, theme, projection mode, nav bar, shortcuts, help
       pages/            one file per section (home, theory, exercises, simulator, compare, audience, sources)
                         plus styleguide.js (#/_ui); a folder with the same name holds that page's modules

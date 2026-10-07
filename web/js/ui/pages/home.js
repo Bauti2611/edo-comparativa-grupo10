@@ -1,7 +1,7 @@
 /**
  * Page 'inicio': the title block from config, the hero "El paso" (the guiding question and the signature diagram of
  * js/ui/step-diagram.js), and the agenda: a proportional bar plus one card per section with its time budget,
- * computed from config.talk and the minutes edited here or in the timer (both write EDO.prefs 'talkMinutes').
+ * computed from config.talk and the minutes edited here (stored in EDO.prefs 'talkMinutes').
  * Members are listed only when config.members has names. The content lives in home/model.js.
  *
  * Load order: after home/model.js (index.html).
@@ -72,7 +72,7 @@
     const error = h('p', { class: 'field__error', id: `${inputId}-error`, hidden: true }, 'Ingrese un número entero de minutos entre 1 y 240.');
     const restore = h('button', { class: 'btn', type: 'button', 'data-variant': 'ghost', 'data-size': 'sm' }, `Volver a ${cfg.talk.minutes} min`);
 
-    const minutes = () => EDO.timer.resolveMinutes(EDO.prefs.get('talkMinutes'), cfg.talk.minutes);
+    const minutes = () => EDO.agenda.resolveMinutes(EDO.prefs.get('talkMinutes'), cfg.talk.minutes);
 
     function paint() {
       const a = M.agenda(minutes(), cfg.talk.agenda);
@@ -104,7 +104,7 @@
     }
 
     function commit() {
-      const m = EDO.timer.parseMinutes(input.value);
+      const m = EDO.agenda.parseMinutes(input.value);
       const bad = Number.isNaN(m);
       error.hidden = !bad;
       if (bad) {
@@ -137,7 +137,7 @@
         h('div', { class: 'field home-agenda__field' },
           h('label', { class: 'field__label', for: inputId }, 'Duración de la exposición (minutos)'),
           h('div', { class: 'home-agenda__control' }, input, restore),
-          h('p', { class: 'field__hint', id: `${inputId}-hint` }, 'El tiempo de cada parte se recalcula y el cronómetro de la barra superior usa el mismo total.'),
+          h('p', { class: 'field__hint', id: `${inputId}-hint` }, 'El tiempo de cada parte se recalcula con el total.'),
           error)),
       bar, list, extras);
     paint();

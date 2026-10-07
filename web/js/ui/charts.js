@@ -161,13 +161,54 @@
     return String(Number(v.toPrecision(7)));
   }
 
+  /** Axis label of a logarithmic tick: plain decimals between 1e-3 and 1e4, otherwise `2e-5` style. */
+  function fmtLogTick(v) {
+    const a = Math.abs(v);
+    if (a >= 1e-3 && a < 1e4) return String(Number(v.toPrecision(3)));
+    const [m, e] = v.toExponential(0).split('e');
+    return `${m}e${Number(e)}`;
+  }
+
+  /**
+   * Chart.js labels every 1..9 x 10^k tick of a logarithmic axis, which piles labels on top of each other.
+   * Keep the labels at 1, 2 and 5 x 10^k when the axis spans few decades, and only at powers of ten otherwise.
+   * A callback set by the page wins.
+   */
+  function tuneLogScales(options) {
+    Object.keys(options.scales || {}).forEach((id) => {
+      const sc = options.scales[id];
+      if (!sc || sc.type !== 'logarithmic') return;
+      const ticks = sc.ticks || (sc.ticks = {});
+      if (ticks.callback) return;
+      ticks.autoSkip = false;
+      // Only exact 1/2/5 x 10^k values get a label: the axis ends (e.g. 0.15) and near-duplicates stay unlabeled.
+      const nice = (v) => {
+        const k = Math.floor(Math.log10(v) + 1e-9);
+        const mant = v / 10 ** k;
+        const m = Math.round(mant);
+        return Math.abs(mant - m) < 1e-6 ? { m, k } : null;
+      };
+      ticks.callback = function logTick(value, index, all) {
+        const v = Number(value);
+        if (!(v > 0)) return null;
+        const n = nice(v);
+        const decades = Math.log10(this.max / this.min);
+        if (!n || !(decades > 2.5 ? n.m === 1 : (n.m === 1 || n.m === 2 || n.m === 5))) return null;
+        const prev = index > 0 && all[index - 1] ? nice(Number(all[index - 1].value)) : null;
+        if (prev && prev.m === n.m && prev.k === n.k) return null;
+        return fmtLogTick(v);
+      };
+    });
+    return options;
+  }
+
   function baseOptions(user) {
     const t = theme();
     const font = { family: t.font, size: t.size };
     const scale = () => ({
       grid: { color: t.grid },
       border: { color: t.axis },
-      ticks: { color: t.text, font },
+      ticks: { color: t.text, font, maxRotation: 0, autoSkipPadding: t.size },
       title: { color: t.text, font: { family: t.font, size: t.size, weight: 'bold' } },
     });
     const scales = { x: scale(), y: scale() };
@@ -184,7 +225,8 @@
       plugins: {
         legend: {
           position: 'bottom',
-          labels: { color: t.text, usePointStyle: true, boxWidth: t.size * 1.4, boxHeight: t.size * 1.2, padding: t.size, font },
+          // boxHeight sets the legend marker radius: kept small so a circle is not twice the size of a square.
+          labels: { color: t.text, usePointStyle: true, boxWidth: t.size * 1.4, boxHeight: t.size * 0.7, padding: t.size * 1.25, font },
         },
         tooltip: {
           backgroundColor: t.tipBg,
@@ -346,7 +388,7 @@
 
     function prepared() {
       restyle(spec.data.datasets);
-      return { type: spec.type, data: spec.data, options: merge(baseOptions(spec.options), spec.options) };
+      return { type: spec.type, data: spec.data, options: tuneLogScales(merge(baseOptions(spec.options), spec.options)) };
     }
 
     function mount() {
