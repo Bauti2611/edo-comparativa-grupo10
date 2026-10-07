@@ -2,7 +2,7 @@
 
 - Created: 2026-10-06 · Branch: `feat/edo-web-comparativa` (base `19c08be`, empty root commit) · Project: `edo_comparativa_taylor_euler_rk2-claude`
 - Engram mirror: topic `odd/edo-web-comparativa/tasks` (full copy of this file; resync after every task)
-- Status: IN PROGRESS · T0-T5 done; T1/T2 committed, everything after `9fcb811` is still uncommitted (the user said the commit does not matter for now) · LEAN MODE (writers write + unit tests + one smoke run; one consolidated QA at the end) · next: T6 (running), T7, T8 · see section 13
+- Status: IN PROGRESS · DONE · T0-T8 done and committed (`48be094`), 944/944 tests, consolidated QA clean · only the open items of section 14 remain (user decisions) · see section 13
 
 ## 1. Objective
 
@@ -281,7 +281,7 @@ Delegation route for substantial work: one fresh bounded writer per task (mandat
 
 Per-task closure: writer reports `<command>: <observed result>`; parent re-runs one command as a spot check; checkbox flipped only after observation; one or more work-unit commits (Conventional Commits, no attribution); `gentle-ai review assess --cwd . --agent claude-code --base-ref <last reviewed boundary> --committed-only --json` read for `review_due`; update this file and the Engram mirror.
 
-Checklist: [x] T0 · [x] T2 · [x] T1 · [x] T3 (split T3a diagram+Fuentes, T3b/T3c Teoría) · [x] T4 (T4a steps renderer, T4b page) · [x] T5 · [x] T6 · [ ] T7 · [ ] T8
+Checklist: [x] T0 · [x] T2 · [x] T1 · [x] T3 (split T3a diagram+Fuentes, T3b/T3c Teoría) · [x] T4 (T4a steps renderer, T4b page) · [x] T5 · [x] T6 · [x] T7 · [x] T8
 
 ## 10. Global acceptance criteria
 
@@ -346,9 +346,13 @@ Checklist: [x] T0 · [x] T2 · [x] T1 · [x] T3 (split T3a diagram+Fuentes, T3b/
 | 2026-10-07 | T4b (Ejercicios page) | route: inline by the parent (the classifier outage blocked delegation); `exercises/{data,sections}.js` + page wiring + CSS block; `node --test web/tests/exercises.test.js`: 18/18; harness at 1280/768/375/360: no overflow, 0 console errors, deep links `ej2`, `ej4`, `p5_3a`, `p6_1c` open their target, toggle 1.5426 ↔ 1.5427, chart count back to 0 after leaving; fixes: `.segmented` wraps at 375 px, `hashchange` opener for in-page sub changes |
 | 2026-10-07 | T5 (Simulador) | delegated writer (route: 2+ non-trivial files): `simulator.js` + `simulator/{state,views}.js` + CSS block; RED (module missing) → GREEN 35 tests; full suite 869/869 (parent re-ran: 869 pass, 0 fail); smoke `?preset=a1` 1280/360 and `?nocdn=1`: 0 errors, no overflow; deviations: display options not in the URL, `n=` in the URL when N was edited last |
 | 2026-10-07 | T6 (Comparativa) | delegated writer (route: 2+ non-trivial files): `compare.js` + `compare/{model,views}.js` + CSS block; RED (module missing) → GREEN 21 tests; full suite 890/890 (parent re-ran: 890 pass, 0 fail); smoke 1280/360: 0 errors, no overflow, x_f column `1.993716 1.815360 1.972761 1.983150 1.977951`, best = Euler Mejorado, instability message at hλ = −3, chart count back to 0; deviations: h options depend on the case (N integer), convergence study starts at the case's own h (first halving on cmp_2xy_13 gives 0.86/1.84, later halvings ≈1/≈2) |
-| 2026-10-07 | T7 (Inicio, Audiencia, timer) | delegated writer launched (route: 2+ non-trivial files) |
+| 2026-10-07 | T7 (Inicio, Audiencia, timer) | delegated writer (route: 2+ non-trivial files): `timer.js` (core, mounts on `app:ready`, key `T`), `home.js` + `home/model.js`, `audience.js` + `audience/{quiz,model}.js`; RED (modules missing) → GREEN 54 tests; full suite 944/944 (parent re-ran); smoke 1280/360 on both pages: 0 errors; quiz numeric key 1.232 = `solve('heun', cmp_2xy_13).ys[1]`; deviations: "Predecí" renamed "¿Qué método llega más cerca?" (no voseo), timer hidden in projection mode below 32em |
+| 2026-10-07 | T8 consolidated QA (parent) | scratchpad `sweep.mjs` over 7 pages × 1920/1280/768/360 × light/dark/projection (84 runs) + `?nocdn=1` on all 7 pages: 0 console errors, 0 failed requests, 0 `.katex-error`. Fixed: header icon buttons overflowed 6 px in projection at 360 (smaller buttons below 32em) and `.segmented` controls overflowed at 360 (global `flex-wrap`); re-run 0 problems (remaining flags are scrollable formula/tab containers by design). Screenshots of Inicio and Comparativa viewed; case caption separator fixed |
+| 2026-10-07 | T8 README | `web/README.md` completed: sections, `T` key, file map, publish (Vercel root `web`, GitHub Pages via Actions or `docs/`), version bump, verification and errata |
+| 2026-10-07 | Commits | `699f35f test: add independent 50-digit oracle and headless browser QA harness`; `63856fd feat(ui): add theory, exercises, simulator, comparison, audience and home pages`; `48be094 docs: record T4-T7 results…` (the user deferred commits, so T3-T8 landed as one feature commit) |
+| 2026-10-07 | Review gating | assess `--base-ref 9fcb811 --committed-only`: `risk: medium`, `review_due: true` (`slice_budget_reached`); consent relayed; the user answered "Omitir esta vez"; exact declined invocation run once: `action: declined`, `consent: declined_this_candidate`, target `sha256:2042e6e5…` matched. RDD-off path (tier medium): writer self-verification + parent spot checks + consolidated QA. Next base: `48be094`. Kill switch untouched. |
 
-Next step: T7 result, then (Audiencia, Home hero, timer, help), T8 (README, consolidated QA, fixes, commits, final report). Crosscheck scripts are already in `web/tests/crosscheck/`.
+Status: DONE. Pending only the open items of section 14 (user decisions).
 
 ## 14. Open items for the user (do not invent)
 
