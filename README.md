@@ -3,7 +3,9 @@
 Group 10, U.T.N. Facultad Regional La Plata. Interactive web app: theory, worked exercises, a simulator and a
 comparison of the methods, all on one numerics engine. Static site: no build step, no bundler, no server.
 
-> Stub written in task T1 (shell and design system). T8 completes it (deploy, version bump, final checks).
+Sections: Inicio (hero "El paso" and agenda), Teoría, Ejercicios (the four solved examples of the apunte, a
+comparative case and the practice bank), Simulador, Comparativa (convergence, cost, linear case), Audiencia (quiz,
+prediction game, one step by hand) and Fuentes.
 
 ## Open it
 
@@ -33,7 +35,7 @@ Put the flags in the URL query, before the `#` route, for example `index.html?no
 | `?theme=dark`, `light`, `auto` | Theme for this session only; never saved. |
 | `?mode=projection`, `normal` | Projection mode for this session only; never saved. |
 
-Keys: `P` toggles the projection mode, `?` opens the shortcut list, `←` and `→` change section (projection mode
+Keys: `P` toggles the projection mode, `T` starts or pauses the presentation timer, `?` opens the shortcut list, `←` and `→` change section (projection mode
 only, never while typing in a field). The theme button cycles auto, light and dark; both choices are saved in
 `localStorage` (key `edo.g10.prefs.v1`), with an in-memory fallback when storage is blocked.
 
@@ -48,7 +50,7 @@ web/
     tokens.css          colours (light, dark, projection), type scale, spacing, motion, layout tokens
     base.css            reset, bare elements, focus ring, reduced motion, print
     components.css      shell + every shared component (.card, .callout, .hl, .formula, .step-block, ...)
-    pages.css           page-level layout (Inicio title block, "El paso" slot, style guide)
+    pages.css           page-level layout, one delimited block per page
   js/
     config.js           EDO.config: group data, version/date, talk agenda, dependency switches
     deps.js             EDO.deps: KaTeX / Chart.js / web font loader with fallback and ?nocdn=1
@@ -58,12 +60,41 @@ web/
       dom.js            h() element builder, icons, tabs (no innerHTML with user text)
       tex.js            KaTeX with a raw-TeX fallback
       charts.js         Chart.js wrapper with a data-table fallback and method styles
+      step-diagram.js   "El paso": one step drawn three ways on a slope field (Inicio, Teoría)
+      steps-model.js steps.js    step-by-step solutions in the cátedra's layout
+      timer.js          presentation timer in the top bar (pure state machine + mount)
       app.js            router, page registry, theme, projection mode, nav bar, shortcuts, help
-      pages/            one file per section (inicio, teoria, ejercicios, simulador, comparativa, audiencia,
-                        fuentes) plus styleguide.js (#/_ui)
+      pages/            one file per section (home, theory, exercises, simulator, compare, audience, sources)
+                        plus styleguide.js (#/_ui); a folder with the same name holds that page's modules
       start.js          starts the shell once every page has registered
   tests/                node:test suites (run with the command above)
+    crosscheck/         independent 50-digit oracle and headless-browser QA (see its README)
 ```
+
+## Publish it
+
+The site is the `web/` folder as is; there is nothing to build.
+
+- **Vercel:** import the repository, set *Root Directory* to `web`, framework preset *Other*, no build command and no
+  output directory.
+- **GitHub Pages:** Pages serves only the repository root or `/docs` from a branch, so either publish `web/` with a
+  GitHub Actions workflow (`actions/upload-pages-artifact` with `path: web`) or copy its contents to `docs/`.
+- Any other static host: upload the contents of `web/`.
+
+## New version
+
+Edit `version` (semantic version) and `buildDate` (ISO date) in `js/config.js`; the footer and Fuentes show them.
+The group facts, the members (`members`, empty until the group fills it) and the talk length (`talk.minutes`) live in
+the same file. Run `node --test web/tests/` afterwards.
+
+## How the numbers were verified
+
+- `node --test web/tests/`: unit tests of the engine against the values of the apunte and the practice sheets, and of
+  every page's pure module.
+- `web/tests/crosscheck/`: an independent re-implementation in 50-digit arithmetic and a headless-browser QA run on
+  `file://` (console errors, overflow at 360 to 1920 px, light, dark and projection modes, `?nocdn=1`).
+- Two printed values of the apunte are wrong and are never shown: Ej. 2 prints y₂ = 1.4297 (correct 1.0429…) and
+  Ej. 3 prints y₂ = 1.4843 (correct 1.3906…).
 
 ## Writing a page
 
@@ -71,7 +102,7 @@ web/
 EDO.app.registerPage('teoria', {
   title: 'Teoría',
   nav: { label: 'Teoría', order: 20 },          // omit `nav` to keep a page out of the bar
-  render(root, ctx) {                            // ctx = { page, sub, query, signal }
+  render(root, ctx) {                            // ctx = { page, sub, query, signal (aborts on leave) }
     root.appendChild(EDO.dom.h('h1', null, 'Teoría'));
     EDO.tex.hydrate(root);                       // renders $...$, $$...$$, \(...\), \[...\]
   },

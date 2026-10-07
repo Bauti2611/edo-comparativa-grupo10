@@ -14,11 +14,12 @@
     ['tipografia', 'Tipografía'],
     ['color', 'Color y métodos'],
     ['bloques', 'Bloques de contenido'],
-    ['pasos', 'Bloque de pasos'],
+    ['pasos', 'Pasos y solución completa'],
     ['tablas', 'Tablas'],
     ['controles', 'Controles'],
     ['navegacion', 'Pestañas y detalles'],
     ['graficos', 'Gráficos'],
+    ['paso', 'Diagrama «El paso»'],
     ['layout', 'Layout y estados'],
   ];
 
@@ -192,17 +193,46 @@
           h('p', null, 'Contenido agrupado en una superficie con borde y sombra suave.')))));
   }
 
-  function steps() {
-    return section('pasos', 'Bloque de pasos',
-      h('article', { class: 'step-block' },
-        h('header', { class: 'step-block__head' }, h('h3', { class: 'step-block__title' }, 'Primera iteración'), h('span', { class: 'step-block__n' }, 'n = 0')),
-        h('div', { class: 'step-block__body' },
-          h('p', null, T`Por Taylor de grado 2, si $n=0$ entonces:`),
-          h('div', { class: 'formula' }, T`$$y_1 = y_0 + h\,y_0' + \frac{h^2}{2!}\,y_0''$$`),
-          h('p', null, 'Reemplazando cada valor:'),
-          h('div', { class: 'formula' }, T`$$y_1 = 1 + 0.1\,[2\cdot 1\cdot 1] + \frac{0.1^2}{2!}\,[2\cdot 1 + 4\cdot 1^2\cdot 1] = 1.23$$`),
-          h('p', null, h('mark', { class: 'hl' }, T`$y_1 = 1.23 = y(x_1) = y(1.1)$`)),
-          h('p', { class: 'step-block__note' }, T`Esto se lee así: el valor de $y_1$ es igual al valor de $y$ evaluado en el punto $x_1$, y como $x_1 = x_0 + h$ entonces $x_1 = 1 + 0.1 = 1.1$.`))));
+  /**
+   * The step block and, below it, the whole solution of the cátedra (js/ui/steps.js) for Ejemplo 1 (Taylor) and
+   * Ejemplo 3 (Euler Mejorado, with collapsible iterations), with the Truncar / Redondear switch. The hosts must be
+   * in the page before `mount` runs, so the section hands back both.
+   */
+  function stepsDemo() {
+    const CASES = [
+      { id: 'a1', method: 'taylor', number: 1, label: 'Ejemplo 1: Taylor de grado 2', collapsible: false },
+      { id: 'a3', method: 'heun', number: 3, label: 'Ejemplo 3: Euler Mejorado, con iteraciones plegables', collapsible: true },
+    ];
+    const hosts = CASES.map((c) => h('div', { id: `_ui-solucion-${c.id}`, 'data-case': c.id }));
+    const radio = uid('modo');
+    const group = h('div', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Mostrar los valores' },
+      [['trunc', 'Truncar'], ['round', 'Redondear']].map(([value, text], i) => h('label', null,
+        h('input', { type: 'radio', name: radio, value, checked: i === 0 }), h('span', null, text))));
+    const sample = h('article', { class: 'step-block' },
+      h('header', { class: 'step-block__head' }, h('h3', { class: 'step-block__title' }, 'Primera iteración'), h('span', { class: 'step-block__n' }, 'n = 0')),
+      h('div', { class: 'step-block__body' },
+        h('p', null, T`Por Taylor de grado 2, si $n=0$ entonces:`),
+        h('div', { class: 'formula' }, T`$$y_1 = y_0 + h\,y_0' + \frac{h^2}{2!}\,y_0''$$`),
+        h('p', null, 'Reemplazando cada valor:'),
+        h('div', { class: 'formula' }, T`$$y_1 = 1 + 0.1\,[2\cdot 1\cdot 1] + \frac{0.1^2}{2!}\,[2\cdot 1 + 4\cdot 1^2\cdot 1] = 1.23$$`),
+        h('p', null, h('mark', { class: 'hl' }, T`$y_1 = 1.23 = y(x_1) = y(1.1)$`)),
+        h('p', { class: 'step-block__note' }, T`Esto se lee así: el valor de $y_1$ es igual al valor de $y$ evaluado en el punto $x_1$, y como $x_1 = x_0 + h$ entonces $x_1 = 1 + 0.1 = 1.1$.`)));
+    return {
+      node: section('pasos', 'Pasos y solución completa',
+        h('div', { class: 'stack' },
+          sample,
+          h('div', { class: 'cluster' }, h('p', { class: 'field__label' }, 'Valores mostrados'), group),
+          CASES.map((c, i) => h('div', { class: 'stack', style: { '--gap': '0.75rem' } }, h('p', { class: 'sg-demo__label' }, c.label), hosts[i])))),
+      mount(ctx) {
+        if (!EDO.steps || !EDO.stepsModel) return;
+        const draw = (c, mode) => EDO.stepsModel.exercise(c.id, c.method, { number: c.number, mode }).model;
+        const handles = CASES.map((c, i) => EDO.steps.render(hosts[i], draw(c, 'trunc'), { signal: ctx.signal, collapsible: c.collapsible, headingLevel: 3 }));
+        group.addEventListener('change', (event) => {
+          if (!event.target.checked) return;
+          CASES.forEach((c, i) => handles[i].update(draw(c, event.target.value)));
+        });
+      },
+    };
   }
 
   function tables() {
@@ -278,6 +308,26 @@
         h('p', null, 'Teclas: ', h('kbd', { class: 'kbd' }, 'P'), ' ', h('kbd', { class: 'kbd' }, '?'), ' ', h('kbd', { class: 'kbd' }, 'Esc'))));
   }
 
+  /**
+   * "El paso" (js/ui/step-diagram.js): once with the four methods and their toggles, once for a single method.
+   * The hosts must be attached to the page before `mount` runs, so the section hands back both.
+   */
+  function pasoDemo() {
+    const hostAll = h('div', { id: '_ui-paso-all' });
+    const hostOne = h('div', { id: '_ui-paso-rk2' });
+    return {
+      node: section('paso', 'Diagrama «El paso»',
+        h('div', { class: 'stack' },
+          demo('Todos los métodos, con interruptores (Taylor, Euler Mejorado y RK2 activos; Euler se activa aparte)', hostAll),
+          demo('Un solo método (RK2, punto medio): sin interruptores de método y con sus valores de construcción', hostOne))),
+      mount(ctx) {
+        if (!EDO.stepDiagram) return;
+        EDO.stepDiagram.mount(hostAll, { signal: ctx.signal });
+        EDO.stepDiagram.mount(hostOne, { methods: 'rk2', h: 0.4, signal: ctx.signal });
+      },
+    };
+  }
+
   function layout() {
     const box = (text) => h('div', { class: 'card', 'data-tone': 'flat' }, text);
     return section('layout', 'Layout y estados',
@@ -290,15 +340,20 @@
   }
 
   function render(page, ctx) {
+    const paso = pasoDemo();
+    const pasos = stepsDemo();
     page.appendChild(h('div', { class: 'stack sg' },
       h('header', { class: 'stack', style: { '--gap': '0.5rem' } },
         h('h1', null, 'Guía de estilo'),
         h('p', { class: 'lead' }, 'Ruta interna para revisar los componentes compartidos. No forma parte del contenido entregado.'),
         h('nav', { 'aria-label': 'Secciones de la guía', class: 'sg-toc' },
           h('ul', { class: 'cluster', role: 'list' }, SECTIONS.map(([id, label]) => h('li', null, h('a', { href: `#/_ui/${id}` }, label)))))),
-      typography(), colors(), blocks(), steps(), tables(), controls(), navigation(),
+      typography(), colors(), blocks(), pasos.node, tables(), controls(), navigation(),
       section('graficos', 'Gráficos', chartDemo(ctx)),
+      paso.node,
       layout()));
+    paso.mount(ctx);
+    pasos.mount(ctx);
     EDO.tex.hydrate(page);
   }
 

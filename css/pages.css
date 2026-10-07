@@ -186,3 +186,1965 @@
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2xs);
 }
+
+/* ---- "El paso": the one-step diagram (js/ui/step-diagram.js) ------------------------------------------------- */
+
+/*
+ * The component measures its own container, not the viewport, so it lays out the same in the Inicio hero and in
+ * a narrower column of the Teoría page: picture on the left and controls plus readout on the right when there
+ * is room (in rem, so projection mode asks for proportionally more pixels), one column otherwise.
+ */
+.step-diagram {
+  container: step-diagram / inline-size;
+  width: 100%;
+}
+
+.step-diagram__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-m);
+  align-items: start;
+}
+
+/*
+ * One column: the picture, then the h slider right under it, the method toggles, what to show and the readout.
+ * The wrappers dissolve (display: contents) so that `order` can sort their children; in the two-column layout they
+ * come back as the two columns: the picture with its switches on the left, the controls and the table on the right.
+ */
+.step-diagram__main,
+.step-diagram__panel,
+.step-diagram__controls {
+  display: contents;
+}
+
+.step-diagram__figure {
+  order: 1;
+}
+
+.step-diagram__h {
+  order: 2;
+}
+
+.step-diagram__methods {
+  order: 3;
+}
+
+.step-diagram__show {
+  order: 4;
+}
+
+.step-diagram__readout {
+  order: 5;
+}
+
+@container step-diagram (min-width: 58rem) {
+  .step-diagram__layout {
+    grid-template-columns: minmax(0, 1.55fr) minmax(21rem, 1fr);
+    gap: var(--space-l);
+  }
+
+  .step-diagram__main,
+  .step-diagram__panel,
+  .step-diagram__controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    min-width: 0;
+  }
+
+  .step-diagram__main {
+    gap: var(--space-s);
+  }
+
+  .step-diagram__panel {
+    gap: var(--space-m);
+  }
+
+  .step-diagram__controls {
+    gap: var(--space-s);
+  }
+
+  .step-diagram__figure,
+  .step-diagram__h,
+  .step-diagram__methods,
+  .step-diagram__show,
+  .step-diagram__readout {
+    order: 0;
+  }
+}
+
+.step-diagram__figure {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-xs);
+  align-content: start;
+  min-width: 0;
+}
+
+/* A box with a fixed aspect ratio and a positioned canvas inside: Chart.js never feeds its own size back. */
+.step-diagram__plot {
+  height: auto;
+  min-height: 17rem;
+  max-height: min(34rem, 72vh);
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  box-shadow: var(--shadow-s);
+}
+
+.step-diagram__caption {
+  max-width: 62ch;
+  color: var(--ink-2);
+  font-size: var(--step--1);
+  line-height: var(--lh-snug);
+}
+
+.step-diagram__nb,
+.step-diagram__nb .tex-fallback {
+  white-space: nowrap;
+}
+
+.step-diagram__h-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.step-diagram__h-value {
+  font-size: var(--step-2);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.step-diagram__group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.125rem;
+}
+
+.step-diagram__toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-m);
+}
+
+/* An unchecked method keeps its colour and shape in the chip but loses the fill and the solid outline. */
+.step-diagram__toggle input:not(:checked) + .method-chip {
+  border-style: dashed;
+  background: transparent;
+  color: var(--ink-2);
+}
+
+.step-diagram__readout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.step-diagram__readout .table-wrap {
+  width: 100%;
+}
+
+/* Fill the wrapper, and let the construction text wrap before the table ever needs to scroll sideways. */
+.step-diagram__readout .table-wrap table {
+  width: 100%;
+  min-width: 0;
+}
+
+.step-diagram__readout th,
+.step-diagram__readout td {
+  padding: 0.5rem 0.65rem;
+}
+
+.step-diagram__method {
+  display: grid;
+  justify-items: start;
+  gap: 0.25rem;
+}
+
+.step-diagram__how {
+  max-inline-size: 28ch;
+  color: var(--ink-3);
+  font-size: var(--step--1);
+  font-weight: 400;
+  line-height: var(--lh-snug);
+  text-wrap: balance;
+  white-space: normal;
+}
+
+.step-diagram__readout tr[data-exact] > * {
+  border-top: 1px solid var(--border-strong);
+}
+
+/* In a narrow container the table keeps only the numbers and short names: the rest would force a sideways scroll. */
+@container step-diagram (max-width: 39.99rem) {
+  .step-diagram__how,
+  .step-diagram__readout .step-diagram__qual {
+    display: none;
+  }
+
+  .step-diagram__readout th,
+  .step-diagram__readout td {
+    padding-inline: 0.45rem;
+  }
+}
+
+/* ---- Fuentes (js/ui/pages/sources.js) --------------------------------------------------------------------------- */
+
+.sources {
+  --gap: var(--space-l);
+}
+
+.sources__toc ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sources-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-s);
+  padding-top: var(--space-l);
+  border-top: 1px solid var(--border);
+}
+
+.sources-section > .callout {
+  max-width: var(--measure);
+}
+
+/* Wide screens: the heading sits in a left rail and the text keeps its reading measure beside it. */
+@media (min-width: 62rem) {
+  .sources-section {
+    grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr);
+    column-gap: var(--space-l);
+    align-items: start;
+  }
+
+  .sources-section > h2 {
+    grid-column: 1;
+    font-size: var(--step-2);
+  }
+
+  .sources-section > :not(h2) {
+    grid-column: 2;
+  }
+}
+
+.sources-quotes {
+  display: grid;
+  gap: 0.125rem;
+  margin: 0;
+}
+
+.sources-quotes dt {
+  margin-top: 0.5rem;
+  color: var(--ink-3);
+  font-size: var(--step--1);
+  font-weight: 700;
+}
+
+.sources-quotes dt:first-child {
+  margin-top: 0;
+}
+
+.sources-quotes dd {
+  margin: 0;
+}
+
+.sources-docs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: var(--measure);
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
+.sources-doc {
+  display: grid;
+  gap: 0.25rem;
+  padding-block: var(--space-xs);
+  border-bottom: 1px solid var(--border);
+}
+
+.sources-doc dt {
+  font-weight: 700;
+  line-height: var(--lh-snug);
+}
+
+.sources-doc cite {
+  font-style: normal;
+}
+
+.sources-doc dd {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+/* ---- Teoría (js/ui/pages/theory.js and theory/) ----------------------------------------------------------------- */
+
+/*
+ * Reading column plus a sticky contents rail. theory.js measures the page in rem and sets data-layout="rail" (wide)
+ * or "compact" (narrow, and projection mode sooner): the contents are then a closed <details> at the top.
+ * Text keeps its reading measure; figures, step blocks and wide tables use the whole content column.
+ */
+.theory {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-l);
+}
+
+.theory__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-s);
+  max-width: var(--measure);
+}
+
+.theory__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-m);
+  align-items: start;
+}
+
+.theory[data-layout="rail"] .theory__layout {
+  grid-template-columns: 15.5rem minmax(0, 1fr);
+  column-gap: var(--space-xl);
+}
+
+.theory__rail {
+  min-width: 0;
+}
+
+.theory[data-layout="rail"] .theory__rail {
+  position: sticky;
+  top: calc(var(--bar-h) + var(--space-m));
+  max-height: calc(100vh - var(--bar-h) - 2 * var(--space-m));
+  max-height: calc(100dvh - var(--bar-h) - 2 * var(--space-m));
+  overflow-y: auto;
+}
+
+.theory-toc__title {
+  display: none;
+  margin-bottom: var(--space-2xs);
+  padding-inline: 0.75rem;
+  color: var(--ink-3);
+  font-size: var(--step--1);
+  font-weight: 700;
+}
+
+.theory[data-layout="rail"] .theory-toc__title {
+  display: block;
+}
+
+/* Rail: the list is always visible, so the summary (the toggle of the compact layout) goes away. */
+.theory[data-layout="rail"] .theory-toc__summary {
+  display: none;
+}
+
+.theory[data-layout="rail"] .theory-toc__details {
+  border: 0;
+  background: transparent;
+}
+
+.theory-toc__list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: var(--space-2xs);
+  list-style: none;
+}
+
+.theory-toc__list > li {
+  margin: 0;
+}
+
+.theory-toc__link {
+  display: grid;
+  grid-template-columns: 0.5rem minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0 0.5rem;
+  padding: 0.4rem 0.75rem 0.4rem 0.5rem;
+  border-radius: var(--radius-s);
+  color: var(--ink-2);
+  font-size: 0.9375rem;
+  line-height: var(--lh-snug);
+  text-decoration: none;
+}
+
+/* The marker of the section being read: a small square, drawn (not a glyph), reserved in every row. */
+.theory-toc__link::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 1px;
+  background: transparent;
+}
+
+.theory-toc__link:hover {
+  background: var(--sunken);
+  color: var(--ink);
+}
+
+.theory-toc__link[aria-current="true"] {
+  background: var(--sunken);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.theory-toc__link[aria-current="true"]::before {
+  background: var(--ink);
+}
+
+.theory__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-l);
+  min-width: 0;
+}
+
+.theory-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-m);
+  padding-top: var(--space-l);
+  border-top: 1px solid var(--border);
+}
+
+.theory__body > .theory-section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.theory-section > * {
+  min-width: 0;
+}
+
+.theory-section > h2 {
+  font-size: var(--step-3);
+}
+
+.theory-section > .callout:not([data-wide]),
+.theory-section > .theory-lead-in,
+.theory-section > .theory-provenance,
+.theory-section > .theory-display {
+  max-width: var(--measure);
+}
+
+.theory-section > .callout[data-wide] {
+  max-width: none;
+}
+
+.theory-section .callout > * + * {
+  margin-top: var(--space-xs);
+}
+
+.theory-section .callout .prose,
+.theory-section .callout p {
+  max-width: var(--measure);
+}
+
+.theory-section .callout .prose > * + * {
+  margin-top: 0.75em;
+}
+
+.theory-lead-in {
+  color: var(--ink-2);
+}
+
+/* The provenance line under the title of a section that is entirely an addition. */
+.theory-provenance {
+  color: var(--ink-2);
+}
+
+.prose > .theory-caption {
+  margin-top: -0.6em;
+  color: var(--ink-3);
+  font-size: var(--step--1);
+}
+
+.theory-notation,
+.theory-glossary {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
+.theory-notation__row,
+.theory-glossary__row {
+  display: grid;
+  grid-template-columns: minmax(9rem, 14rem) minmax(0, 1fr);
+  gap: 0.25rem 1.25rem;
+  padding-block: 0.65rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.theory-notation dt,
+.theory-glossary dt {
+  font-weight: 700;
+  line-height: var(--lh-snug);
+}
+
+.theory-notation dd,
+.theory-glossary dd {
+  margin: 0;
+}
+
+@media (max-width: 36rem) {
+  .theory-notation__row,
+  .theory-glossary__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.theory-recipe {
+  padding-inline-start: 1.6em;
+}
+
+.theory-recipe > li + li {
+  margin-top: 0.75em;
+}
+
+.theory-display {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.theory-display .field {
+  justify-items: start;
+}
+
+.theory-steps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-m);
+  max-width: 56rem;
+}
+
+/* Room for a diagram until it is mounted (it mounts when it comes near the viewport). */
+.theory-diagram {
+  min-height: 24rem;
+}
+
+.theory-diagram[data-mounted] {
+  min-height: 0;
+}
+
+/*
+ * From about 900 px of viewport on, the tables fit the reading column instead of scrolling inside their wrapper: cells
+ * may wrap (numbers and formulas never do), the paddings are tighter and the method chips of the column heads drop
+ * their pill. Narrower than that a table keeps its single-line cells and scrolls inside its wrapper. (A rem in a media
+ * query is the browser's own 16 px, so projection mode, which only changes the root size, falls in the first case.)
+ */
+
+/* Narrow screens: a column head stays in one line (the table scrolls instead of growing a tall head row). */
+.theory-section .table-wrap thead .wrap {
+  white-space: nowrap;
+}
+
+@media (min-width: 56rem) {
+  .theory-section .table-wrap table {
+    width: auto;
+  }
+
+  .theory-section .table-wrap th,
+  .theory-section .table-wrap td {
+    padding: 0.5rem 0.55rem;
+    white-space: normal;
+  }
+
+  .theory-section .table-wrap .num {
+    white-space: nowrap;
+  }
+
+  .theory-section .table-wrap .num.wrap {
+    white-space: normal;
+  }
+
+  /* A formula that must stay on one line (KaTeX would otherwise break it after a "+" or an "="). */
+  .theory-section .table-wrap .nowrap {
+    white-space: nowrap;
+  }
+
+  .theory-section .table-wrap thead .method-chip {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+}
+
+/* ==== steps-solution: begin ==== */
+
+/*
+ * The step-by-step solution of the cátedra (js/ui/steps.js): the statement, the planteo, the Ordenada Genérica, one
+ * step block per iteration, the summary table and the Verificación. It reuses the shared components (.step-block,
+ * .formula, .hl, .table-wrap, .callout, .badge, .method-chip) and adds only the layout between them. Every colour
+ * and size is a token, so dark and projection modes need nothing here. Namespace: .steps-solution.
+ */
+.steps-solution {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-m);
+  width: 100%;
+  max-width: 58rem;
+}
+
+.steps-solution > * {
+  min-width: 0;
+}
+
+.steps-solution__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2xs);
+}
+
+.steps-solution__title {
+  max-width: var(--measure);
+  font-size: var(--step-2);
+  line-height: var(--lh-snug);
+}
+
+.steps-solution__tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.steps-solution__notice {
+  max-width: var(--measure);
+  color: var(--ink-3);
+  font-size: var(--step--1);
+}
+
+/* The statement: the problem as the handout writes it, left-aligned on a quiet ground. */
+.steps-solution__statement {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3xs);
+  padding: var(--space-s) var(--space-m);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--sunken);
+}
+
+.steps-solution__statement .formula {
+  margin-block: 0;
+  padding: 0.1em 0;
+  text-align: start;
+}
+
+.steps-solution__statement .katex-display,
+.steps-solution__statement .katex-display > .katex {
+  text-align: start;
+}
+
+/*
+ * Sentences and formulas inside the step blocks. A display formula wraps after its operators instead of scrolling
+ * (KaTeX would keep it on one line): a long substitution stays readable on a phone and when projected, where nothing
+ * can be scrolled. Only a group that cannot break falls back to the scroll of .formula.
+ */
+.steps-solution .step-block__body {
+  gap: var(--space-2xs);
+}
+
+.steps-solution .formula:not(.hl) {
+  padding-block: 0.15em;
+}
+
+.steps-solution .katex-display {
+  padding-block: 0.1em;
+}
+
+.steps-solution .katex-display > .katex {
+  white-space: normal;
+}
+
+.steps-solution__say {
+  max-width: var(--measure);
+  margin: 0;
+}
+
+.steps-solution .step-block__note {
+  max-width: var(--measure);
+}
+
+.steps-solution__result {
+  margin: var(--space-3xs) 0;
+  text-align: center;
+}
+
+/* "Ordenada Genérica": the label of the apunte sits under its highlighted formula, at the right. */
+.steps-solution__tag {
+  justify-self: end;
+  margin: calc(var(--space-3xs) * -1) 0 0;
+  color: var(--ink-2);
+  font-size: var(--step--1);
+  font-weight: 700;
+}
+
+/* x_0, x_1 = x_0 + h, ...: short equations in columns, left-aligned like the handout's list, when there is room. */
+.steps-solution__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: 0 var(--space-s);
+}
+
+.steps-solution__grid .formula {
+  margin: 0;
+  padding-inline: 0;
+  text-align: start;
+}
+
+.steps-solution__grid .katex-display,
+.steps-solution__grid .katex-display > .katex {
+  text-align: start;
+}
+
+.steps-solution__closing {
+  max-width: var(--measure);
+  font-weight: 700;
+}
+
+/* A collapsible iteration: the head is the summary, with a chevron like the disclosure component. */
+.steps-solution details.step-block > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.steps-solution details.step-block > summary::-webkit-details-marker {
+  display: none;
+}
+
+.steps-solution details.step-block > summary::before {
+  content: "";
+  flex: none;
+  align-self: center;
+  width: 0.5em;
+  height: 0.5em;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--dur-1) var(--ease-out);
+}
+
+.steps-solution details.step-block[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.steps-solution details.step-block:not([open]) > summary {
+  border-bottom: 0;
+}
+
+/* The summary table. */
+.steps-solution__summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-xs);
+}
+
+.steps-solution__subtitle {
+  font-size: var(--step-1);
+  line-height: var(--lh-snug);
+}
+
+/* Verificación (our addition, in the dashed "Ampliación" callout): four labelled values. */
+.steps-solution__verif .callout__label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.steps-solution__verif-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  gap: var(--space-2xs) var(--space-m);
+  margin: var(--space-xs) 0 0;
+}
+
+.steps-solution__verif-row {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.steps-solution__verif-row dt {
+  color: var(--ink-2);
+  font-size: var(--step--1);
+}
+
+.steps-solution__verif-row dd {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* Narrow screens: tighter padding, so the formulas have room before they scroll inside their block. */
+@media (max-width: 36rem) {
+  .steps-solution {
+    gap: var(--space-s);
+  }
+
+  .steps-solution__statement {
+    padding: var(--space-xs);
+  }
+
+  .steps-solution .step-block__head {
+    padding-inline: var(--space-xs);
+  }
+
+  .steps-solution .step-block__body {
+    padding-inline: var(--space-xs);
+  }
+}
+
+/* ==== steps-solution: end ==== */
+
+/* ==== exercises: begin (js/ui/pages/exercises.js and exercises/) ==== */
+
+.exercises {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-xl);
+}
+
+.exercises__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-s);
+}
+
+.exercises__head > .lead,
+.exercises__head > .callout,
+.exercises__notice {
+  max-width: var(--measure);
+}
+
+.exercises__controls {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2xs);
+}
+
+.exercises__nav ul {
+  gap: var(--space-xs) var(--space-m);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.exercises__nav a {
+  font-weight: 700;
+}
+
+.exercises-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-m);
+  padding-top: var(--space-l);
+  border-top: 1px solid var(--border);
+}
+
+.exercises-section > * {
+  min-width: 0;
+}
+
+.exercises-section > h2 {
+  font-size: var(--step-3);
+}
+
+.exercises-section > .prose {
+  max-width: var(--measure);
+}
+
+/* ---- A. Cards of the solved examples ---- */
+
+.exercise-cards {
+  display: grid;
+  gap: var(--space-s);
+}
+
+.exercise-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+}
+
+.exercise-card[open] {
+  border-color: var(--border-strong);
+}
+
+.exercise-card__summary {
+  display: grid;
+  gap: var(--space-3xs);
+  padding: var(--space-s) var(--space-m);
+  list-style: none;
+  cursor: pointer;
+}
+
+.exercise-card__summary::-webkit-details-marker {
+  display: none;
+}
+
+.exercise-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.exercise-card__head::before {
+  content: "";
+  flex: none;
+  width: 0.5em;
+  height: 0.5em;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.exercise-card[open] > .exercise-card__summary .exercise-card__head::before {
+  transform: rotate(45deg);
+}
+
+.exercise-card__title {
+  font-size: var(--step-1);
+  font-weight: 700;
+}
+
+.exercise-card__pvi {
+  padding-left: calc(0.5em + var(--space-xs));
+  color: var(--ink-2);
+}
+
+.exercise-card__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-m);
+  padding: var(--space-m);
+  border-top: 1px solid var(--border);
+}
+
+.exercise-card__body > * {
+  min-width: 0;
+}
+
+.exercise-card__actions {
+  margin: 0;
+}
+
+.exercise-notes {
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: var(--step--1);
+}
+
+.exercise-notes li + li {
+  margin-top: 0.25em;
+}
+
+/* ---- B. Comparative case ---- */
+
+.exercise-compare__table,
+.exercise-compare__chart,
+.exercise-compare__solution {
+  min-width: 0;
+}
+
+.exercise-compare__subtitle {
+  margin-top: var(--space-s);
+  font-size: var(--step-2);
+}
+
+.exercise-compare__closing {
+  max-width: var(--measure);
+}
+
+/* ---- C. Practice bank ---- */
+
+.exercises-bank__filters {
+  align-items: end;
+  gap: var(--space-m);
+}
+
+/* A joined control with many options must wrap instead of widening the page on a phone. */
+.exercises__controls .field,
+.exercises-bank__filters .field {
+  max-width: 100%;
+}
+
+.exercises__controls .segmented,
+.exercises-bank__filters .segmented {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.exercises-bank {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.exercises-bank th,
+.exercises-bank td {
+  vertical-align: top;
+}
+
+.exercises-bank tbody th[scope="row"] {
+  font-weight: 600;
+  text-align: start;
+}
+
+.exercises-bank__flag {
+  font-size: var(--step--2);
+}
+
+.exercises-bank__detail > td {
+  padding: 0;
+  background: var(--sunken);
+}
+
+.exercises-bank__detail-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-s);
+  padding: var(--space-m);
+}
+
+.exercises-bank__actions .stack {
+  align-items: stretch;
+}
+
+/* From about 900 px the bank fits the content column: cells wrap and numbers stay on one line. */
+@media (min-width: 56rem) {
+  .exercises-bank th,
+  .exercises-bank td {
+    padding: 0.5rem;
+    white-space: normal;
+  }
+
+  .exercises-bank .num {
+    white-space: nowrap;
+  }
+
+  .exercises-bank__actions {
+    min-width: 9.5rem;
+  }
+}
+
+/* ==== exercises: end ==== */
+
+/* ==== simulator: begin (js/ui/pages/simulator.js and simulator/) ==== */
+
+.sim {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-l);
+}
+
+.sim__head {
+  display: grid;
+  gap: var(--space-s);
+}
+
+/* Inputs first on a phone; from about 1000 px the form sits to the left of the results. */
+.sim__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-l);
+  align-items: start;
+}
+
+.sim__inputs,
+.sim__outputs,
+.sim__results {
+  min-width: 0;
+}
+
+.sim__panel {
+  padding: var(--space-m);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+}
+
+.sim__panel > h2 {
+  font-size: var(--step-2);
+}
+
+.sim__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.5rem), 1fr));
+  gap: var(--space-s);
+}
+
+.sim__group {
+  display: grid;
+  gap: var(--space-2xs);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-s) 0 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.sim__group > legend {
+  padding: 0;
+  font-size: var(--step--1);
+  font-weight: 700;
+}
+
+.sim__method {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs) var(--space-s);
+}
+
+.sim__order-wrap {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.sim__order {
+  width: auto;
+  min-width: 7.5rem;
+}
+
+.sim__preview {
+  min-height: 2.25rem;
+  padding: var(--space-2xs) var(--space-xs);
+  overflow-x: auto;
+  border-radius: var(--radius-s);
+  background: var(--sunken);
+  color: var(--ink);
+}
+
+.sim__preview[hidden] {
+  display: none;
+}
+
+.sim__actions {
+  gap: var(--space-xs) var(--space-s);
+}
+
+.sim__status {
+  flex: 1 1 14rem;
+  margin: 0;
+}
+
+.sim__link {
+  flex: 1 1 100%;
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+}
+
+.sim-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-s);
+  padding-top: var(--space-m);
+  border-top: 1px solid var(--border);
+}
+
+.sim-section > * {
+  min-width: 0;
+}
+
+.sim-section > h2 {
+  font-size: var(--step-2);
+}
+
+.sim__reference {
+  max-width: var(--measure);
+}
+
+.sim__charts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-l);
+}
+
+.sim__charts .chart {
+  margin: 0;
+}
+
+.sim__log {
+  margin-bottom: var(--space-2xs);
+}
+
+.sim__steps-method {
+  max-width: 22rem;
+}
+
+.sim__steps {
+  min-width: 0;
+}
+
+.sim-table {
+  border-collapse: collapse;
+}
+
+.sim-table thead th.sim-table__group {
+  text-align: start;
+  white-space: nowrap;
+}
+
+.sim-table thead td {
+  padding: 0;
+}
+
+.sim-table tbody th[scope="row"] {
+  font-weight: 600;
+  text-align: end;
+}
+
+.sim-table__gap td {
+  color: var(--ink-3);
+  font-size: var(--step--1);
+  text-align: center;
+}
+
+@media (min-width: 62rem) {
+  .sim__layout {
+    grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
+    gap: var(--space-xl);
+  }
+
+  .sim__charts {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+  }
+}
+
+/* ==== simulator: end ==== */
+
+/* ==== compare: begin (js/ui/pages/compare.js and compare/) ==== */
+
+.cmp {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-l);
+}
+
+.cmp__head {
+  display: grid;
+  gap: var(--space-s);
+}
+
+.cmp__controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-s) var(--space-l);
+  padding: var(--space-m);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+}
+
+.cmp__controls > *,
+.cmp-section > * {
+  min-width: 0;
+}
+
+.cmp__case .select {
+  max-width: 100%;
+}
+
+.cmp__statement {
+  display: grid;
+  gap: var(--space-3xs);
+}
+
+.cmp__statement p {
+  margin: 0;
+}
+
+.cmp__pvi {
+  font-size: var(--step-1);
+}
+
+.cmp-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-s);
+  padding-top: var(--space-m);
+  border-top: 1px solid var(--border);
+}
+
+.cmp-section > h2 {
+  font-size: var(--step-2);
+}
+
+.cmp-section h3 {
+  font-size: var(--step-1);
+}
+
+.cmp__note {
+  max-width: var(--measure);
+  margin: 0;
+}
+
+.cmp__note[hidden] {
+  display: none;
+}
+
+.cmp__charts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-l);
+  align-items: start;
+}
+
+.cmp__charts > * {
+  min-width: 0;
+}
+
+.cmp__charts .chart {
+  margin: 0;
+}
+
+/* The error ruler of the same-problem table: the length encodes log10 of the error. */
+.cmp-bar {
+  display: block;
+  inline-size: calc(var(--w, 0) * 8rem);
+  block-size: 0.625rem;
+  border-radius: var(--radius-pill);
+  background: var(--ink-3);
+}
+
+.cmp-bar[data-method="euler"] { background: var(--m-euler); }
+.cmp-bar[data-method="taylor"] { background: var(--m-taylor); }
+.cmp-bar[data-method="heun"] { background: var(--m-heun); }
+.cmp-bar[data-method="rk2"] { background: var(--m-rk2); }
+
+.cmp__linear-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-s) var(--space-l);
+}
+
+.cmp__linear-controls .field {
+  min-width: min(100%, 14rem);
+}
+
+.cmp__out {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.cmp__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: var(--space-s);
+}
+
+.cmp__choose {
+  display: grid;
+  gap: var(--space-s);
+  max-width: var(--measure);
+}
+
+.cmp__advice,
+.cmp__conclusions {
+  display: grid;
+  gap: var(--space-2xs);
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+
+@media (min-width: 62rem) {
+  .cmp__controls {
+    grid-template-columns: minmax(16rem, 24rem) minmax(0, 1fr);
+  }
+
+  .cmp__statement {
+    grid-column: 1 / -1;
+  }
+
+  .cmp__charts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cmp__charts--wide {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 52rem;
+  }
+}
+
+/* ==== compare: end ==== */
+
+/* ==== home: begin (js/ui/pages/home.js and home/) ==== */
+
+.home {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-xl);
+}
+
+.home .title-block {
+  margin-bottom: 0;
+}
+
+/* Hero: the guiding question is the thesis of the talk; the diagram right under it answers it. */
+.home-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-m);
+}
+
+.home-hero__lead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-s);
+  max-width: 60rem;
+}
+
+.home-hero__eyebrow {
+  color: var(--ink-3);
+  font-size: var(--step--1);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.home-hero__question {
+  max-width: 20em;
+  font-size: var(--step-4);
+  font-weight: 800;
+  line-height: var(--lh-tight);
+  letter-spacing: -0.02em;
+}
+
+.home-hero__text {
+  max-width: 62ch;
+  color: var(--ink-2);
+  font-size: var(--step-1);
+  line-height: var(--lh-snug);
+}
+
+.home-hero__ways {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-hero__ways li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+}
+
+.home-hero__figure {
+  min-width: 0;
+  padding: var(--space-s);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  box-shadow: var(--shadow-s);
+}
+
+.home-hero__note {
+  max-width: 70ch;
+  color: var(--ink-3);
+  font-size: var(--step--1);
+}
+
+/* Agenda: a proportional bar (decorative: the list carries the same numbers) and one card per section. */
+.home-agenda {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-m);
+}
+
+.home-agenda__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-s) var(--space-l);
+}
+
+.home-agenda__total {
+  color: var(--ink-2);
+}
+
+.home-agenda__field {
+  max-width: 26rem;
+}
+
+.home-agenda__control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.home-agenda__input {
+  width: 6rem;
+}
+
+.home-agenda__bar {
+  display: flex;
+  min-height: 2.5rem;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+}
+
+.home-agenda__seg {
+  display: flex;
+  flex: var(--f) 1 0;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0 0.5rem;
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: var(--step--1);
+  white-space: nowrap;
+}
+
+.home-agenda__seg:nth-child(even) {
+  background: var(--sunken);
+}
+
+.home-agenda__seg + .home-agenda__seg {
+  border-inline-start: 1px solid var(--border-strong);
+}
+
+.home-agenda__seg-n {
+  flex: none;
+  color: var(--ink);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-agenda__seg-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-agenda__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: var(--space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-agenda__list > li {
+  display: grid;
+  min-width: 0;
+}
+
+.home-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.35rem var(--space-s);
+  padding: var(--space-s);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out);
+}
+
+a.home-card:hover {
+  border-color: var(--ink-2);
+  background: var(--sunken);
+}
+
+a.home-card:hover .home-card__title {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.home-card[data-here] {
+  border-style: dashed;
+  border-color: var(--border-strong);
+}
+
+.home-card__n {
+  display: grid;
+  grid-row: span 2;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-card__main {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.home-card__title {
+  font-size: var(--step-1);
+}
+
+.home-card__desc {
+  color: var(--ink-2);
+  font-size: var(--step--1);
+  line-height: var(--lh-snug);
+}
+
+.home-card__time {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 2;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-card__duration {
+  font-weight: 700;
+}
+
+.home-card__window {
+  color: var(--ink-3);
+  font-size: var(--step--1);
+}
+
+.home-agenda__extras {
+  color: var(--ink-2);
+}
+
+/* ==== home: end ==== */
+
+/* ==== audience: begin (js/ui/pages/audience.js and audience/) ==== */
+
+.aud {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-xl);
+}
+
+.aud__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-s);
+}
+
+.aud__toc ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aud__toc a {
+  font-weight: 700;
+}
+
+.aud-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-s);
+  max-width: 64rem;
+}
+
+.aud-section__lead {
+  max-width: 62ch;
+  color: var(--ink-2);
+}
+
+.aud-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.aud-inline > .input {
+  width: 12rem;
+  max-width: 100%;
+}
+
+/* ---- Quiz ---- */
+
+.aud-quiz__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem var(--space-s);
+}
+
+.aud-quiz__score {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.aud-quiz {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-s);
+}
+
+.aud-quiz__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.aud-quiz__count {
+  color: var(--ink-3);
+  font-size: var(--step--1);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.aud-quiz__prompt {
+  max-width: 52ch;
+  font-size: var(--step-2);
+  font-weight: 700;
+  line-height: var(--lh-snug);
+}
+
+.aud-quiz__options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.aud-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: var(--control-h);
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--step-0);
+  line-height: var(--lh-snug);
+  text-align: start;
+  transition: background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+}
+
+.aud-option:hover {
+  border-color: var(--ink-2);
+  background: var(--sunken);
+}
+
+.aud-option[aria-disabled="true"] {
+  cursor: default;
+}
+
+.aud-option[aria-disabled="true"]:hover {
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
+.aud-option__letter {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  font-weight: 700;
+}
+
+/* The key is marked with the highlighter, as the apunte marks the value to write down. */
+.aud-option[data-state="key"],
+.aud-option[data-state="key"]:hover {
+  border-color: var(--hl-edge);
+  background: var(--hl-soft);
+}
+
+.aud-option[data-state="key"] .aud-option__letter {
+  border-color: var(--hl-edge);
+  background: var(--hl);
+}
+
+.aud-option[data-state="wrong"],
+.aud-option[data-state="wrong"]:hover {
+  border-style: dashed;
+  border-color: var(--danger);
+}
+
+.aud-option[data-state="wrong"] .aud-option__letter {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.aud-quiz__nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.aud-quiz__strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aud-quiz__dot {
+  display: grid;
+  place-items: center;
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.aud-quiz__dot:hover {
+  background: var(--sunken);
+}
+
+.aud-quiz__dot[data-state="correct"] {
+  border-color: var(--hl-edge);
+  background: var(--hl);
+}
+
+.aud-quiz__dot[data-state="wrong"],
+.aud-quiz__dot[data-state="close"] {
+  border-style: dashed;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.aud-quiz__dot[aria-current] {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink);
+}
+
+/* ---- Who ends closest ---- */
+
+.aud-predict__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-s) var(--space-m);
+}
+
+.aud-predict__controls .select {
+  width: auto;
+  max-width: 100%;
+}
+
+.aud-predict__statement {
+  max-width: 70ch;
+}
+
+.aud-predict__ask {
+  font-size: var(--step-1);
+  font-weight: 700;
+}
+
+.aud-predict__choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.aud-choice {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h);
+  padding: 0 0.85rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.aud-choice:hover {
+  background: var(--sunken);
+}
+
+.aud-choice[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--sunken);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.aud-choice .method-chip {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: inherit;
+}
+
+.aud-predict__out {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-s);
+}
+
+/* ---- One step by hand ---- */
+
+.aud-step__statement {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-xs);
+  max-width: 70ch;
+}
+
+.aud-step__solution:empty {
+  display: none;
+}
+
+/* ---- Closing questions ---- */
+
+.aud-closing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aud-closing li {
+  max-width: 70ch;
+  padding: var(--space-s) 0;
+  border-top: 1px solid var(--border);
+  font-size: var(--step-1);
+  line-height: var(--lh-snug);
+}
+
+.aud-closing li:last-child {
+  border-bottom: 1px solid var(--border);
+}
+
+/* ==== audience: end ==== */

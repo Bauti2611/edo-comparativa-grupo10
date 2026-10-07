@@ -122,7 +122,7 @@ describe('index.html shell', () => {
     const order = [
       'js/config.js', 'js/deps.js',
       'js/numerics/expr.js', 'js/numerics/format.js', 'js/numerics/problems.js', 'js/numerics/methods.js', 'js/numerics/analysis.js',
-      'js/ui/bus.js', 'js/ui/prefs.js', 'js/ui/route.js', 'js/ui/dom.js', 'js/ui/tex.js', 'js/ui/charts.js', 'js/ui/app.js',
+      'js/ui/bus.js', 'js/ui/prefs.js', 'js/ui/route.js', 'js/ui/dom.js', 'js/ui/tex.js', 'js/ui/charts.js', 'js/ui/step-diagram.js', 'js/ui/steps-model.js', 'js/ui/steps.js', 'js/ui/timer.js', 'js/ui/app.js',
     ];
     assert.deepEqual(scripts.slice(0, order.length), order);
     const pages = scripts.slice(order.length, -1);
