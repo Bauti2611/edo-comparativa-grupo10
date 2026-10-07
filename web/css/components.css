@@ -692,8 +692,9 @@ mark.hl {
 }
 
 .table-wrap table {
-  width: max-content;
-  min-width: 0;
+  width: auto;
+  /* A wrapper wider than its table (a fixed-width box) is always filled edge to edge, never left half empty. */
+  min-width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.9375rem;
@@ -707,11 +708,28 @@ mark.hl {
   text-align: start;
 }
 
+/*
+ * Text cells and column heads wrap at spaces, so a table fits its container whenever it can; numbers (.num) and
+ * cells marked .nowrap stay on one line. Only a table whose numbers alone are too wide scrolls sideways.
+ */
 .table-wrap th,
 .table-wrap td {
-  padding: 0.5rem 0.9rem;
+  padding: 0.5rem 0.75rem;
   border-bottom: 1px solid var(--border);
   text-align: start;
+  white-space: normal;
+}
+
+.table-wrap td.num,
+.table-wrap th.num[scope="row"],
+.table-wrap .nowrap {
+  white-space: nowrap;
+}
+
+/* A formula or a button inside a cell never breaks in the middle (KaTeX would split after a "+" or an "="). */
+.table-wrap .katex,
+.table-wrap .btn,
+.table-wrap button {
   white-space: nowrap;
 }
 
@@ -736,12 +754,6 @@ mark.hl {
 
 .table-wrap .wrap {
   white-space: normal;
-}
-
-/* A text cell that wraps: a fixed preferred width, or the max-content table would still lay it on one line. */
-.table-wrap td.wrap {
-  width: 22rem;
-  min-width: 14rem;
 }
 
 .table-wrap tbody tr:hover > * {

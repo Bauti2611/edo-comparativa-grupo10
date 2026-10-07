@@ -435,7 +435,7 @@ describe('spreadLabels', () => {
 function recordingCtx() {
   const ops = [];
   const ctx = { ops, measureText: (t) => ({ width: String(t).length * 7 }) };
-  ['save', 'restore', 'beginPath', 'closePath', 'moveTo', 'lineTo', 'rect', 'arc', 'clip', 'stroke', 'fill', 'setLineDash'].forEach((name) => {
+  ['save', 'restore', 'beginPath', 'closePath', 'moveTo', 'lineTo', 'rect', 'arc', 'clip', 'stroke', 'fill', 'fillRect', 'setLineDash'].forEach((name) => {
     ctx[name] = (...args) => { ops.push({ op: name, args, lineWidth: ctx.lineWidth, strokeStyle: ctx.strokeStyle }); };
   });
   ['fillText', 'strokeText'].forEach((name) => {
