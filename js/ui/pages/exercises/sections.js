@@ -232,14 +232,17 @@
       h('td', { colspan: BANK_COLUMNS }, h('div', { class: 'exercises-bank__detail-body' }, notesList(h, r.notes), host)));
     const button = h('button', {
       type: 'button', class: 'btn btn--small', 'aria-expanded': 'false', 'aria-controls': detailId, onclick: () => toggle(),
-    }, 'Resolver paso a paso');
+      'aria-label': `Resolver paso a paso: ${r.source}`,
+    }, 'Paso a paso');
 
     function toggle(force) {
       const open = force === undefined ? detail.hidden === true : Boolean(force);
       state.open = open;
       detail.hidden = !open || row.hidden === true;
       button.setAttribute('aria-expanded', String(open));
-      button.replaceChildren(open ? 'Ocultar la resolución' : 'Resolver paso a paso');
+      // Short labels keep the bank table within a laptop screen; the aria-label names the exercise.
+      button.replaceChildren(open ? 'Ocultar' : 'Paso a paso');
+      button.setAttribute('aria-label', `${open ? 'Ocultar la resolución' : 'Resolver paso a paso'}: ${r.source}`);
       if (open && !state.mounted) {
         state.mounted = true;
         env.solution(host, r.id, r.methodId, {});
@@ -258,7 +261,7 @@
       h('td', { class: 'exercises-bank__actions' },
         h('div', { class: 'stack', style: { '--gap': '0.375rem' } },
           button,
-          h('a', { class: 'btn btn--small', href: `#/simulador?preset=${r.id}` }, 'Abrir en el simulador'))));
+          h('a', { class: 'btn btn--small', href: `#/simulador?preset=${r.id}`, 'aria-label': `Abrir en el simulador: ${r.source}` }, 'Simulador'))));
     env.onRow(r.id, () => toggle(true));
     return { row, detail, state, toggle };
   }

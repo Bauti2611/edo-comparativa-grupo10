@@ -1416,15 +1416,11 @@
   text-align: center;
 }
 
-@media (min-width: 62rem) {
+/* The form goes beside the results only when the results column still fits a four-method table (~48rem). */
+@media (min-width: 75rem) {
   .sim__layout {
     grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
     gap: var(--space-xl);
-  }
-
-  /* One chart per row: the data table under each chart needs the full width. */
-  .sim__charts {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 
