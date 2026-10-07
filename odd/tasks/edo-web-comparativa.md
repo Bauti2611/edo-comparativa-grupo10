@@ -2,7 +2,7 @@
 
 - Created: 2026-10-06 · Branch: `feat/edo-web-comparativa` (base `19c08be`, empty root commit) · Project: `edo_comparativa_taylor_euler_rk2-claude`
 - Engram mirror: topic `odd/edo-web-comparativa/tasks` (full copy of this file; resync after every task)
-- Status: IN PROGRESS · T0, T2 and T1 done and committed (native reviews of T2 and T1 declined by the user) · next: T3 · see section 13
+- Status: IN PROGRESS · T0-T5 done; T1/T2 committed, everything after `9fcb811` is still uncommitted (the user said the commit does not matter for now) · LEAN MODE (writers write + unit tests + one smoke run; one consolidated QA at the end) · next: T6 (running), T7, T8 · see section 13
 
 ## 1. Objective
 
@@ -236,6 +236,13 @@ Everything numerically relevant runs at full float64; formatting happens only at
 - Design tokens: light paper `#f5f7fa`, surface `#fff`, ink `#0f1a2b`, highlight `#ffe566`; dark `#0c121d`, surface `#141c2b`, ink `#e9eef7`, highlight `rgba(255,214,10,.27)`. Method colors (dark in parentheses): Taylor `#d55e00` (`#ee7a2e`) circle/solid, Euler Mejorado `#008c64` (`#2bb890`) triangle/long dash, RK2 `#0072b2` (`#4da3dc`) diamond/short dash, Euler `#5f6a7e` (`#9aa5b6`) square/dotted, exact = ink. Text font **Public Sans** (swapped from Atkinson Hyperlegible after the visual review because Atkinson draws a slashed zero on every number), system fallback, system mono for code and expression inputs. Projection mode: root ×1.375 (22 px), 3 rem controls, stronger grays and chart lines; `P` toggles, ←/→ navigate only in projection mode.
 - Known behaviors: no focus move to the `h1` on the first load (keeps the skip link first); later routes focus the `h1` and announce; toggling projection while scrolled shifts the scroll position; the web font swap reflows once; no SRI and no vendoring (needs the user's download OK). The Home page shows a clearly named empty slot for "El paso" and every page shows a quiet `data-stub` marker until its task replaces it.
 
+### 6.5 APIs added by T3 and T4a (authoritative)
+
+- `EDO.stepDiagram.mount(container, opts) -> {element, update(next), destroy(), getState(), readout(), chart}`; opts `problem` (preset id or Problem; default `cmp_2xy_13`), `x0,y0`, `h` (default 0.4; slider 0.05-0.5), `methods` ('all' | 'euler' | 'taylor' | 'heun' | 'rk2'), `visible` (default checked: Taylor, Euler Mejorado, RK2), `showField`, `construction`, `signal`. Pure and `require`-able: `model`, `readout`, `stepAt`, `frameFor`, `valueText`, `errorText`, `stepText`, `buildDatasets`, `chartOptions`, `plugin`, `IDS`, `LABELS`, `DEFAULTS`. Dev demo at `#/_ui/paso`.
+- `EDO.theory.data` (`web/js/ui/pages/theory/data.js`, pure): `example`, `taylorExample`, `firstStep(mode)`, `localErrors`, `linearStep`, `stabilityTable`, `convergence`, `comparison`, `costs`, `orders`, `all`. The Teoría page is `theory.js` + `theory/{kit,sections-a,sections-b,sections-c}.js` (10 sections `teoria-<slug>`, TOC with scroll-spy, lazy diagrams).
+- `EDO.stepsModel.build(problem, methodId, {mode, decimals, order, number, upTo, ask}) -> model` and `exercise(idOrProblem, methodId, opts) -> {problem, solution, model}`; model = title, method, problem, display{notice}, statement, initial, domain{N}, abscissas, generic, `iterations[] {n,label,ordinal,y,yText,values,valueTexts,parts}`, closing, `summary{columns,rows,final}`, `verification` (`extension:true`, `reference`), partial, diverged. `EDO.steps.render(container, model, {signal, collapsible, headingLevel}) -> {element, update, destroy}`. In trunc mode intermediates keep one exact extra decimal (the apunte prints k1 = 0.27082): `showIntermediate`. Dev demo at `#/_ui/pasos`.
+- Simulator query contract (to be implemented by T5): `#/simulador?preset=<id>` and the free form `f=…&indep=x|t&x0=…&y0=…&xf=…&h=…&n=…&m=euler,taylor,heun,rk2&ord=2|3|4&ex=<closed form>`.
+
 ## 7. Design direction (pinned by the brief; Operate + Read surface)
 
 - The brief pins the look: "limpio, moderno y responsivo", light/dark, modo proyección. The skill's decision-round/concept-roll ceremony was skipped on purpose (brief-pinned direction; user said to proceed). Disclose this in the final report.
@@ -274,7 +281,7 @@ Delegation route for substantial work: one fresh bounded writer per task (mandat
 
 Per-task closure: writer reports `<command>: <observed result>`; parent re-runs one command as a spot check; checkbox flipped only after observation; one or more work-unit commits (Conventional Commits, no attribution); `gentle-ai review assess --cwd . --agent claude-code --base-ref <last reviewed boundary> --committed-only --json` read for `review_due`; update this file and the Engram mirror.
 
-Checklist: [x] T0 · [x] T2 · [x] T1 · [ ] T3 · [ ] T4 · [ ] T5 · [ ] T6 · [ ] T7 · [ ] T8
+Checklist: [x] T0 · [x] T2 · [x] T1 · [x] T3 (split T3a diagram+Fuentes, T3b/T3c Teoría) · [x] T4 (T4a steps renderer, T4b page) · [x] T5 · [x] T6 · [ ] T7 · [ ] T8
 
 ## 10. Global acceptance criteria
 
@@ -331,7 +338,17 @@ Checklist: [x] T0 · [x] T2 · [x] T1 · [ ] T3 · [ ] T4 · [ ] T5 · [ ] T6 ·
 | 2026-10-06 | T1 review gating | assess (`--base-ref 43a8679`): `risk: medium`, 30 paths, 5,625 lines, `review_due: true` (`slice_budget_reached`; the stale reason is the removal of the `.atl` cache from tracking). Consent relayed through the structured prompt; the user answered "Omitir esta vez" = `declined`; exact declined invocation run once: `action: declined`, `consent: declined_this_candidate`, target `sha256:acade456…` matched. RDD-off path (tier medium): writer self-verification + parent verification (done). New base for later assessments: `9fcb811`. Kill switch untouched. |
 | 2026-10-06 | Process note | Hook finding: a Stop hook flags the dirty working tree as an unreviewed candidate whenever the turn ends mid-task. Mitigation: commit docs before waiting, and run delegated writers in the FOREGROUND (the turn stays open) instead of ending the turn. A tracked auto-generated cache (`.atl/.skill-registry.cache.json`) caused spurious dirtiness: untracked and git-ignored (`6329949`). |
 
-Next step: T3 (theory + Fuentes + "El paso" component) with a fresh foreground writer; assess later with `--base-ref 9fcb811`.
+| 2026-10-06/07 | T3 first attempt | cut off by an API rate limit after 30 min; only `theory/data.js` (complete) and a half-written `step-diagram.js` (placeholder `@@PART3@@`) survived. Lesson: split long tasks into 30-60 min writers and keep the doc as the shared state. |
+| 2026-10-07 | T3a (diagram + Fuentes) | writer report: 679/679 tests; QA 0 errors on `#/_ui/paso` (light, dark, projection, 320-1440 px, `?nocdn=1`), `#/fuentes` text equals doc 5.9; parent re-ran tests and viewed screenshots: numbers hand-checked (h=0.4 from (1,1): Taylor 2.28, Euler Mejorado 2.408, RK2 2.344, exact 2.6117) |
+| 2026-10-07 | T3b/T3c (Teoría) | T3b was cut off again by the rate limit after writing 5 modules; the parent found and fixed a KaTeX page-widening bug (`position:absolute` MathML copies escaping a scrolling table: `html .katex, .table-wrap {position:relative}` in `components.css`, overflow 29 px → 0 from 360 to 1920 px); T3c finished: 743/743 tests (64 new), 11-perturbation mutation check, tables fit from 900 px up, fact check vs doc section 5 with targeted Spanish and Ralston fixes, `?nocdn=1` 0 errors; parent re-ran the suite and viewed receta/error screenshots |
+| 2026-10-07 | T4a (steps renderer) | writer report: RED 36 failing of 38 before implementation, then 73/73; full suite 816/816; harness smoke 0 errors, toggle Truncar/Redondear verified (1.5426/1.9727 ↔ 1.5427/1.9728); deviation: in trunc mode intermediates keep one exact extra decimal (k1 = 0.27082 as printed in the apunte) |
+| 2026-10-07 | Process | The user asked for speed ("terminá todo y después chequeá"): from T4b on, writers run LEAN (unit tests + one smoke run, no screenshot rounds) and the parent verifies once at the end. Orchestrator instructions were refreshed mid-session: delegated prompts now carry `## Allowed edit surfaces`, `## Skills to load before work` (paths from `.atl/skill-registry.md`) and a `## Key Learnings` closing block; the test-first policy applies where a runnable deterministic test exists. The auto-mode classifier failed transiently twice when launching T4b. |
+| 2026-10-07 | T4b (Ejercicios page) | route: inline by the parent (the classifier outage blocked delegation); `exercises/{data,sections}.js` + page wiring + CSS block; `node --test web/tests/exercises.test.js`: 18/18; harness at 1280/768/375/360: no overflow, 0 console errors, deep links `ej2`, `ej4`, `p5_3a`, `p6_1c` open their target, toggle 1.5426 ↔ 1.5427, chart count back to 0 after leaving; fixes: `.segmented` wraps at 375 px, `hashchange` opener for in-page sub changes |
+| 2026-10-07 | T5 (Simulador) | delegated writer (route: 2+ non-trivial files): `simulator.js` + `simulator/{state,views}.js` + CSS block; RED (module missing) → GREEN 35 tests; full suite 869/869 (parent re-ran: 869 pass, 0 fail); smoke `?preset=a1` 1280/360 and `?nocdn=1`: 0 errors, no overflow; deviations: display options not in the URL, `n=` in the URL when N was edited last |
+| 2026-10-07 | T6 (Comparativa) | delegated writer (route: 2+ non-trivial files): `compare.js` + `compare/{model,views}.js` + CSS block; RED (module missing) → GREEN 21 tests; full suite 890/890 (parent re-ran: 890 pass, 0 fail); smoke 1280/360: 0 errors, no overflow, x_f column `1.993716 1.815360 1.972761 1.983150 1.977951`, best = Euler Mejorado, instability message at hλ = −3, chart count back to 0; deviations: h options depend on the case (N integer), convergence study starts at the case's own h (first halving on cmp_2xy_13 gives 0.86/1.84, later halvings ≈1/≈2) |
+| 2026-10-07 | T7 (Inicio, Audiencia, timer) | delegated writer launched (route: 2+ non-trivial files) |
+
+Next step: T7 result, then (Audiencia, Home hero, timer, help), T8 (README, consolidated QA, fixes, commits, final report). Crosscheck scripts are already in `web/tests/crosscheck/`.
 
 ## 14. Open items for the user (do not invent)
 
