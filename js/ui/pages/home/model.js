@@ -1,6 +1,6 @@
 /**
  * EDO.home.model - the content of the Inicio page with no DOM: the guiding question, a one-line description of each
- * section and the agenda with its time budget (EDO.timer.plan over config.talk), plus the optional members line.
+ * section and the agenda with its time budget (EDO.agenda.plan over config.talk), plus the optional members line.
  *
  *   QUESTION                          the guiding question, inline TeX
  *   SECTIONS {id: {label, description}}   every navigable section
@@ -9,17 +9,17 @@
  *     extras[] the sections that are not part of the talk (Fuentes), same fields without the budget
  *   membersText(members) -> 'A · B' | null   null (render nothing) while config.members is empty
  *
- * Load order: after js/ui/timer.js; before home.js. Also `require`-able in Node.
+ * Load order: after js/ui/agenda.js; before home.js. Also `require`-able in Node.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
-    module.exports = factory(require('../../timer.js'));
+    module.exports = factory(require('../../agenda.js'));
   } else {
     const EDO = (root.EDO = root.EDO || {});
     EDO.home = EDO.home || {};
-    EDO.home.model = factory(EDO.timer);
+    EDO.home.model = factory(EDO.agenda);
   }
-}(typeof globalThis !== 'undefined' ? globalThis : this, function (timer) {
+}(typeof globalThis !== 'undefined' ? globalThis : this, function (budget) {
   'use strict';
 
   const QUESTION = '¿Cómo damos un paso de $x_n$ a $x_{n+1}$?';
@@ -38,7 +38,7 @@
   const hrefOf = (id) => `#/${id}`;
 
   function agenda(minutes, talkAgenda) {
-    const p = timer.plan(minutes, talkAgenda);
+    const p = budget.plan(minutes, talkAgenda);
     const rows = p.items.map((item, k) => ({
       n: k + 1,
       id: item.id,
@@ -46,15 +46,15 @@
       description: SECTIONS[item.id] ? SECTIONS[item.id].description : '',
       href: hrefOf(item.id),
       seconds: item.seconds,
-      duration: timer.durationText(item.seconds),
-      window: timer.windowText(item),
+      duration: budget.durationText(item.seconds),
+      window: budget.windowText(item),
       fraction: p.totalSec > 0 ? item.seconds / p.totalSec : 0,
     }));
     const inAgenda = new Set(rows.map((r) => r.id));
     const extras = ORDER.filter((id) => !inAgenda.has(id))
       .map((id) => ({ id, label: SECTIONS[id].label, description: SECTIONS[id].description, href: hrefOf(id) }));
     return {
-      minutes: p.totalSec / 60, totalText: timer.durationText(p.totalSec), rows, extras,
+      minutes: p.totalSec / 60, totalText: budget.durationText(p.totalSec), rows, extras,
     };
   }
 

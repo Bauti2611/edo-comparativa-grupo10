@@ -236,17 +236,6 @@
   margin-inline-start: auto;
 }
 
-/* Reserved for the presentation timer (filled by a later task); takes no room while empty. */
-.timer-slot:empty {
-  display: none;
-}
-
-.timer-slot {
-  display: flex;
-  align-items: center;
-  margin-inline-end: 0.25rem;
-}
-
 .icon-btn {
   display: inline-grid;
   flex: none;
@@ -747,6 +736,12 @@ mark.hl {
 
 .table-wrap .wrap {
   white-space: normal;
+}
+
+/* A text cell that wraps: a fixed preferred width, or the max-content table would still lay it on one line. */
+.table-wrap td.wrap {
+  width: 22rem;
+  min-width: 14rem;
 }
 
 .table-wrap tbody tr:hover > * {
@@ -1329,154 +1324,11 @@ html .katex,
   text-align: center;
 }
 
-/* ==== timer: begin (js/ui/timer.js, mounted in #timer-slot) ==== */
-
 /*
- * The presentation timer: a play/pause button and the remaining time. The time face opens a panel with reset, the
- * total minutes and the agenda segment of the section on screen. The last minutes are marked with the highlighter
- * (the site's "pay attention to this value" colour) and the overtime with the danger colour; nothing blinks.
- */
-.timer {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.timer__face {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-height: var(--control-h);
-  padding: 0 0.65rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-s);
-  background: var(--surface);
-  color: var(--ink);
-  font-size: var(--step-0);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  white-space: nowrap;
-  transition: background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
-}
-
-/* Status dot: hollow while stopped, filled while running. */
-.timer__face::before {
-  content: "";
-  flex: none;
-  width: 0.55rem;
-  height: 0.55rem;
-  border: 2px solid var(--ink-3);
-  border-radius: 50%;
-}
-
-.timer__face:hover {
-  border-color: var(--ink-2);
-  background: var(--sunken);
-}
-
-.timer__face[aria-expanded="true"] {
-  border-color: var(--ink);
-}
-
-.timer[data-status="paused"] .timer__face::before {
-  border-color: var(--ink);
-}
-
-.timer[data-status="running"] .timer__face::before {
-  border-color: var(--ink);
-  background: var(--ink);
-}
-
-/* The section on screen has used up its share of the agenda. */
-.timer[data-schedule="late"] .timer__face {
-  box-shadow: inset 0 -3px 0 var(--hl-edge);
-}
-
-.timer[data-phase="warning"] .timer__face {
-  border-color: var(--hl-edge);
-  background: var(--hl-soft);
-}
-
-.timer[data-phase="final"] .timer__face {
-  border-color: var(--hl-edge);
-  background: var(--hl);
-}
-
-.timer[data-phase="over"] .timer__face {
-  border-color: var(--danger);
-  background: var(--danger-soft);
-  color: var(--danger);
-}
-
-.timer[data-phase="over"] .timer__face::before {
-  border-color: var(--danger);
-  background: var(--danger);
-}
-
-/* Positioned against the sticky header, aligned with the right edge of the content column. */
-.timer__panel {
-  position: absolute;
-  top: 100%;
-  right: max(var(--gutter), calc((100% - var(--content-max)) / 2 + var(--gutter)));
-  z-index: 60;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-s);
-  width: min(22rem, calc(100% - 2 * var(--gutter)));
-  margin-top: 0.25rem;
-  padding: var(--space-s);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-m);
-  background: var(--surface);
-  box-shadow: var(--shadow-m);
-}
-
-.timer__panel[hidden] {
-  display: none;
-}
-
-.timer__buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.timer__input {
-  max-width: 8rem;
-}
-
-.timer__line {
-  color: var(--ink-2);
-  font-size: var(--step--1);
-  line-height: var(--lh-snug);
-}
-
-.timer__line--muted {
-  color: var(--ink-3);
-}
-
-/* Narrow screens: only the time face stays in the bar; start and pause move to its panel. */
-@media (max-width: 30em) {
-  .timer__play {
-    display: none;
-  }
-
-  .timer__face {
-    padding-inline: 0.5rem;
-  }
-}
-
-/*
- * Projection mode on a phone-sized screen: the enlarged bar has no room left, so the timer leaves the bar (it keeps
- * counting; it reappears on a wider screen or in normal mode). Projection mode is meant for a projector.
+ * Projection mode on a phone-sized screen: the four enlarged header buttons alone are wider than a 360 px bar,
+ * so they shrink to a touch-safe size.
  */
 @media (max-width: 32em) {
-  html[data-mode="projection"] .timer-slot {
-    display: none;
-  }
-
-  /* The four enlarged header buttons alone are wider than a 360 px bar: keep them at a touch-safe 44 px. */
   html[data-mode="projection"] .site-actions {
     gap: 0;
   }
@@ -1486,5 +1338,3 @@ html .katex,
     height: 2rem;
   }
 }
-
-/* ==== timer: end ==== */

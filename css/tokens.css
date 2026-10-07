@@ -80,7 +80,7 @@
   --chart-tip-fg: #ffffff;
   --chart-font: 0.8125rem;
   --chart-line: 2.25;
-  --chart-point: 4;
+  --chart-point: 5.5;
   --chart-h: clamp(17rem, 30vw, 25rem);
 
   /* ---- Space, shape, depth --------------------------------------------------------------------------- */
@@ -169,7 +169,7 @@ html[data-mode="projection"] {
   --focus-offset: 3px;
   --chart-font: 0.9375rem;
   --chart-line: 3.5;
-  --chart-point: 5.5;
+  --chart-point: 7;
   --chart-h: clamp(19rem, 34vw, 28rem);
   --lh-body: 1.55;
   --measure: 68ch;

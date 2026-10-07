@@ -122,7 +122,7 @@ describe('index.html shell', () => {
     const order = [
       'js/config.js', 'js/deps.js',
       'js/numerics/expr.js', 'js/numerics/format.js', 'js/numerics/problems.js', 'js/numerics/methods.js', 'js/numerics/analysis.js',
-      'js/ui/bus.js', 'js/ui/prefs.js', 'js/ui/route.js', 'js/ui/dom.js', 'js/ui/tex.js', 'js/ui/charts.js', 'js/ui/step-diagram.js', 'js/ui/steps-model.js', 'js/ui/steps.js', 'js/ui/timer.js', 'js/ui/app.js',
+      'js/ui/bus.js', 'js/ui/prefs.js', 'js/ui/route.js', 'js/ui/dom.js', 'js/ui/tex.js', 'js/ui/charts.js', 'js/ui/step-diagram.js', 'js/ui/steps-model.js', 'js/ui/steps.js', 'js/ui/agenda.js', 'js/ui/app.js',
     ];
     assert.deepEqual(scripts.slice(0, order.length), order);
     const pages = scripts.slice(order.length, -1);
@@ -138,7 +138,7 @@ describe('index.html shell', () => {
     assert.match(html, /<a class="skip-link" href="#app">Saltar al contenido<\/a>/);
     ['<header class="site-header" id="site-header">', '<nav class="site-nav" id="site-nav" aria-label="Secciones">',
       '<main id="app" class="app container" tabindex="-1">', '<footer class="site-footer">',
-      'id="timer-slot"', 'id="route-announcer"', 'aria-live="polite"', 'id="theme-btn"', 'id="mode-btn"', 'id="help-btn"', 'id="menu-btn"',
+      'id="route-announcer"', 'aria-live="polite"', 'id="theme-btn"', 'id="mode-btn"', 'id="help-btn"', 'id="menu-btn"',
     ].forEach((fragment) => assert.ok(html.includes(fragment), fragment));
     assert.match(html, /<noscript>[\s\S]*JavaScript[\s\S]*<\/noscript>/);
   });

@@ -43,8 +43,8 @@
     members: [],
 
     /**
-     * Presentation settings. `minutes` is a placeholder that can be edited at runtime (the timer
-     * stores the user's choice in prefs). The agenda shares are provisional and must sum to 1.
+     * Presentation settings. `minutes` is a placeholder that can be edited at runtime on Inicio (the
+     * choice is stored in prefs). The agenda shares are provisional and must sum to 1.
      */
     talk: {
       minutes: 20,
@@ -73,6 +73,6 @@
   Object.freeze(config.group);
   Object.freeze(config.professors);
   Object.freeze(config.deps);
-  // `members` and `talk` stay mutable: the group edits one and the timer adjusts the other.
+  // `members` and `talk` stay mutable: the group edits one and Inicio adjusts the other.
   return Object.freeze(config);
 }));
