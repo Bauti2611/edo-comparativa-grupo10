@@ -33,9 +33,8 @@ describe('EDO.prefs defaults and validation', () => {
     assert.equal(p.get('theme'), 'auto');
     assert.equal(p.get('mode'), 'normal');
     assert.deepEqual(p.get('display'), { decimals: 4, mode: 'round' });
-    assert.equal(p.get('talkMinutes'), null);
     assert.equal(p.get('nope'), undefined);
-    assert.deepEqual(p.getAll(), { theme: 'auto', mode: 'normal', display: { decimals: 4, mode: 'round' }, talkMinutes: null });
+    assert.deepEqual(p.getAll(), { theme: 'auto', mode: 'normal', display: { decimals: 4, mode: 'round' } });
   });
 
   it('accepts only valid values for theme and mode', () => {
@@ -63,22 +62,6 @@ describe('EDO.prefs defaults and validation', () => {
     assert.deepEqual(p.get('display'), { decimals: 4, mode: 'round' });
     assert.equal(p.set('display', 'round'), false);
     assert.equal(p.set('display', null), false);
-  });
-
-  it('clamps the talk length to whole minutes between 1 and 240, and accepts null to reset', () => {
-    const p = prefsModule.create({ storage: memoryStorage() });
-    assert.equal(p.set('talkMinutes', 25), true);
-    assert.equal(p.get('talkMinutes'), 25);
-    p.set('talkMinutes', 0);
-    assert.equal(p.get('talkMinutes'), 1);
-    p.set('talkMinutes', 999);
-    assert.equal(p.get('talkMinutes'), 240);
-    p.set('talkMinutes', 12.6);
-    assert.equal(p.get('talkMinutes'), 13);
-    assert.equal(p.set('talkMinutes', '20'), false);
-    assert.equal(p.set('talkMinutes', NaN), false);
-    assert.equal(p.set('talkMinutes', null), true);
-    assert.equal(p.get('talkMinutes'), null);
   });
 
   it('returns copies, so callers cannot mutate the store', () => {
@@ -109,8 +92,8 @@ describe('EDO.prefs persistence', () => {
 
   it('ignores corrupted JSON, unknown keys and invalid stored values', () => {
     assert.equal(prefsModule.create({ storage: memoryStorage({ [KEY]: '{not json' }) }).get('theme'), 'auto');
-    const p = prefsModule.create({ storage: memoryStorage({ [KEY]: JSON.stringify({ theme: 'neon', mode: 'projection', evil: 1, display: { decimals: 50, mode: 'x' }, talkMinutes: 'a' }) }) });
-    assert.deepEqual(p.getAll(), { theme: 'auto', mode: 'projection', display: { decimals: 12, mode: 'round' }, talkMinutes: null });
+    const p = prefsModule.create({ storage: memoryStorage({ [KEY]: JSON.stringify({ theme: 'neon', mode: 'projection', evil: 1, display: { decimals: 50, mode: 'x' } }) }) });
+    assert.deepEqual(p.getAll(), { theme: 'auto', mode: 'projection', display: { decimals: 12, mode: 'round' } });
     assert.equal(prefsModule.create({ storage: memoryStorage({ [KEY]: '[1,2]' }) }).get('mode'), 'normal');
     assert.equal(prefsModule.create({ storage: memoryStorage({ [KEY]: 'null' }) }).get('mode'), 'normal');
   });

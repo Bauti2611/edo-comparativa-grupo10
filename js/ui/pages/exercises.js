@@ -198,7 +198,7 @@
 
   EDO.app.registerPage('ejercicios', {
     title: 'Ejercicios',
-    nav: { label: 'Ejercicios', order: 30 },
+    nav: { label: 'Ejercicios', order: 40 },
     render,
   });
 }(typeof window !== 'undefined' ? window : this));

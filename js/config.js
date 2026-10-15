@@ -1,12 +1,11 @@
 /**
  * EDO.config - the editable facts of the deliverable: group data, version and build date,
- * talk settings and dependency switches. Pure data: no DOM access, no side effects.
+ * and dependency switches. Pure data: no DOM access, no side effects.
  *
  * Load order: first script of the page (deps.js and everything else read it).
  * Also `require`-able in Node so the tests can check it.
  *
  * Open items for the group (never invent them here):
- *  - `talk.minutes`: the real time limit of the exposition (20 is only a placeholder).
  *  - `deps.vendored`: set to true after copying Chart.js and KaTeX into web/vendor/ (see README).
  *  - `apunte.mostrarVerificacion`: off by default (see the `apunte` block below).
  */
@@ -37,7 +36,7 @@
       slot: 6,
     },
 
-    professors: ['Ing. Diego Amiconi', 'Germán Céspedes'],
+    professors: ['Germán Céspedes'],
 
     /** Group members, one full name per entry, in the order in which they expose. */
     members: [
@@ -46,22 +45,6 @@
       'Milagros Belén Olivera',
       'Zoe Ramljak',
     ],
-
-    /**
-     * Presentation settings. `minutes` is a placeholder that can be edited at runtime on Inicio (the
-     * choice is stored in prefs). The agenda shares are provisional and must sum to 1.
-     */
-    talk: {
-      minutes: 20,
-      agenda: [
-        { id: 'inicio', label: 'Inicio', share: 0.10 },
-        { id: 'teoria', label: 'Teoría', share: 0.25 },
-        { id: 'ejercicios', label: 'Ejercicios', share: 0.20 },
-        { id: 'simulador', label: 'Simulador', share: 0.20 },
-        { id: 'comparativa', label: 'Comparativa', share: 0.15 },
-        { id: 'audiencia', label: 'Audiencia', share: 0.10 },
-      ],
-    },
 
     /**
      * The four worked examples of the apunte of the cátedra, as the apunte prints them.
@@ -105,6 +88,6 @@
   Object.freeze(config.group);
   Object.freeze(config.professors);
   Object.freeze(config.deps);
-  // `members`, `talk` and `apunte` stay mutable: the group edits the first and the last, Inicio adjusts `talk`.
+  // `members` and `apunte` stay mutable: the group edits them in this file.
   return Object.freeze(config);
 }));

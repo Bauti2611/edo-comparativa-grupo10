@@ -457,7 +457,7 @@
 
   EDO.app.registerPage('simulador', {
     title: 'Simulador',
-    nav: { label: 'Simulador', order: 40 },
+    nav: { label: 'Simulador', order: 50 },
     render,
   });
 }(typeof window !== 'undefined' ? window : this));
