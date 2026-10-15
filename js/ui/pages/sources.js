@@ -94,9 +94,11 @@
         list([
           [h('strong', null, 'KaTeX'), ' ', h('span', { class: 'num' }, deps.katex), ' · licencia MIT. Muestra las fórmulas.'],
           [h('strong', null, 'Chart.js'), ' ', h('span', { class: 'num' }, deps.chart), ' · licencia MIT. Dibuja los gráficos.'],
+          [h('strong', null, 'chartjs-plugin-zoom'), ' ', h('span', { class: 'num' }, deps.zoom), ' · licencia MIT. Permite acercar la figura del paso.'],
+          [h('strong', null, 'Hammer.js'), ' ', h('span', { class: 'num' }, deps.hammer), ' · licencia MIT. Reconoce el gesto de pinza de ese acercamiento.'],
           [h('strong', null, 'Public Sans'), ' · licencia SIL Open Font License 1.1. Es la tipografía del texto.'],
         ]),
-        h('p', null, `KaTeX y Chart.js se cargan ${where}. Si no están disponibles, el sitio sigue funcionando: las fórmulas se muestran como texto TeX y los gráficos como tablas. Public Sans se carga desde Google Fonts; sin ella se usa la tipografía del sistema.`),
+        h('p', null, `Estas bibliotecas se cargan ${where}. Si no están disponibles, el sitio sigue funcionando: las fórmulas se muestran como texto TeX, los gráficos como tablas y la figura del paso se dibuja sin sus controles de acercamiento. Public Sans se carga desde Google Fonts; sin ella se usa la tipografía del sistema.`),
         h('p', null, 'Los métodos numéricos, el analizador de expresiones y la derivación simbólica son código propio, sin bibliotecas externas y sin evaluación dinámica de código.')));
   }
 

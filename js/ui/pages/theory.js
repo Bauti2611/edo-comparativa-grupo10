@@ -1,7 +1,12 @@
 /**
  * Page 'teoria': the theory of the PVI and of the three methods of the course, as one long reading page with a
- * sticky table of contents. The content lives in theory/sections-a/b/c.js (one builder per section, fed with the
- * numbers of theory/data.js); this file lays it out and wires the behaviour:
+ * sticky table of contents. It is written as a recap: the groups that expose before this one present each method
+ * on its own, so every method section opens with its "Lo esencial" summary (formula, what it needs, cost per step
+ * and order) and keeps the long derivations folded (`kit.fold`), without removing anything. The Receta comes
+ * second, right after the PVI, because the group may be asked to solve an exercise at the board; the comparison
+ * itself (error, cost, the summary and the decision guide) belongs to the Comparativa page.
+ * The content lives in theory/sections-a/b/c.js (one builder per section, fed with the numbers of
+ * theory/data.js); this file lays it out and wires the behaviour:
  *
  *  - layout: reading column plus a sticky contents rail on wide screens (`data-layout="rail"`), and a closed
  *    `<details>` at the top on narrow ones (`compact`). The switch is measured in rem, so projection mode (bigger
@@ -45,11 +50,20 @@
   }
 
   function header(kit) {
-    const { callout, badge, im } = kit;
+    const {
+      callout, badge, im, goto,
+    } = kit;
     return h('header', { class: 'theory__head' },
       h('h1', null, 'Teoría'),
-      h('p', { class: 'lead' }, 'Cómo se da un paso de ', im('x_n'), ' a ', im('x_{n+1}'), ' con Taylor, Euler Mejorado y RK2: de dónde sale cada fórmula, cómo se aplica a mano y cuánto error comete.'),
+      h('p', { class: 'lead' }, 'Repaso de los tres métodos antes de compararlos: cómo se aplica cada uno a mano, la fórmula, qué necesita y cuánto cuesta el paso de ',
+        im('x_n'), ' a ', im('x_{n+1}'), '.'),
       callout({ kind: 'note', label: 'Cómo leer esta página' },
+        h('p', null, 'Es un repaso, no una primera clase. Empieza por ', goto('receta', 'la Receta'),
+          ': ahí está, método por método, la Ordenada Genérica y el orden de las operaciones para resolver un ejercicio a mano. Después, cada método abre con el recuadro ',
+          h('strong', null, 'Lo esencial'), ' y deja las deducciones completas plegadas debajo, disponibles para quien quiera verlas.'),
+        h('p', null, 'La comparación no está acá: el error, el costo, el caso lineal y la respuesta a «¿cuál elegir?» están en la ',
+          h('a', { href: '#/comparativa' }, 'Comparativa'), ', que es el tema asignado. Esta página solo deja ',
+          goto('familia', 'La familia RK2'), ', que explica por qué Euler Mejorado y RK2 son el mismo método con otros pesos.'),
         h('p', null, 'El texto principal sigue el apunte de la cátedra: su notación, sus fórmulas y su formato. Los recuadros de borde punteado con la etiqueta ', badge('Ampliación'),
           ' agregan lo que el apunte no trae y pueden omitirse sin perder el hilo del curso. El fondo amarillo marca, como en el apunte, la fórmula general (la Ordenada Genérica) y el valor que se anota.'),
         h('p', null, 'Todos los valores numéricos de esta página los calcula, al abrirla, el mismo motor que usan los ejercicios y el simulador.')));

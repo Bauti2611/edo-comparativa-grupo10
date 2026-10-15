@@ -1,7 +1,9 @@
 /**
- * Page 'inicio': the title block from config, the hero "El paso" (the guiding question and the signature diagram of
- * js/ui/step-diagram.js), and the agenda: a proportional bar plus one card per section with its time budget,
- * computed from config.talk and the minutes edited here (stored in EDO.prefs 'talkMinutes').
+ * Page 'inicio': the title block from config, the comparative question of the talk (the topic the group was
+ * assigned), the PVI that threads the site with the source it comes from, the hero "El paso" (the guiding
+ * question and the signature diagram of js/ui/step-diagram.js), and the
+ * agenda: a proportional bar plus one card per section with its time budget, computed from config.talk and the
+ * minutes edited here (stored in EDO.prefs 'talkMinutes').
  * Members are listed only when config.members has names. The content lives in home/model.js.
  *
  * Load order: after home/model.js (index.html).
@@ -34,6 +36,34 @@
       h('dl', { class: 'meta-list' },
         metaRow('Docentes', (cfg.professors || []).join(' · ')),
         metaRow('Integrantes', M.membersText(cfg.members))));
+  }
+
+  /**
+   * The comparative question the group was assigned. The three methods are presented one by one by the groups
+   * that expose before, so the site states its own question first and the demo below answers how a step is given.
+   */
+  function thesis() {
+    const t = M.THESIS;
+    return h('section', { class: 'home-thesis', id: 'inicio-tesis', 'aria-labelledby': 'inicio-tesis-title' },
+      h('p', { class: 'home-hero__eyebrow' }, t.eyebrow),
+      h('h2', { class: 'home-thesis__question', id: 'inicio-tesis-title' }, t.question),
+      t.body.map((line) => h('p', { class: 'home-thesis__text' }, line)),
+      h('p', { class: 'home-thesis__links cluster' }, t.links.map((link) => h('a', { href: link.href }, link.label))));
+  }
+
+  /**
+   * The PVI that threads the site, stated with its provenance before the hero diagram below uses it. The
+   * statement is read from the preset, so no value of it is typed here.
+   */
+  function caseBlock() {
+    const c = M.CASE;
+    const p = EDO.problems.fromPreset(c.preset);
+    const fTex = EDO.expr.toTeX(p.fNode, { indep: p.indep });
+    return h('section', { class: 'home-thesis', id: 'inicio-caso', 'aria-labelledby': 'inicio-caso-title' },
+      h('p', { class: 'home-hero__eyebrow' }, c.eyebrow),
+      h('h2', { class: 'home-thesis__question', id: 'inicio-caso-title' },
+        `$y' = ${fTex}$, con $y(${p.x0}) = ${p.y0}$ y paso $h = ${p.h}$`),
+      c.body.map((line) => h('p', { class: 'home-thesis__text' }, line)));
   }
 
   function hero(signal) {
@@ -145,7 +175,7 @@
   }
 
   function render(page, ctx) {
-    page.appendChild(h('div', { class: 'home' }, titleBlock(), hero(ctx.signal), agendaSection(ctx.signal)));
+    page.appendChild(h('div', { class: 'home' }, titleBlock(), thesis(), caseBlock(), hero(ctx.signal), agendaSection(ctx.signal)));
     EDO.tex.hydrate(page);
   }
 

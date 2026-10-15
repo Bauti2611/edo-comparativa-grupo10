@@ -61,10 +61,25 @@ describe('home model: content', () => {
     assert.equal(M.QUESTION, '¿Cómo damos un paso de $x_n$ a $x_{n+1}$?');
   });
 
-  it('renders the members only when the group configured them', () => {
+  it('states the comparative question the group was assigned, and where it is answered', () => {
+    const t = M.THESIS;
+    assert.match(t.question, /^¿Cuál de los tres métodos de segundo orden/);
+    assert.equal(t.body.length, 2);
+    assert.match(t.body[0], /O\(h\^2\)/);
+    assert.match(t.body[0], /Taylor de grado 2/);
+    assert.match(t.body[0], /Euler Mejorado y RK2/);
+    assert.deepEqual(t.links.map((l) => l.href), ['#/comparativa', '#/ejercicios']);
+    t.links.forEach((l) => assert.ok(l.label.length > 10, l.href));
+  });
+
+  it('lists the members the group configured', () => {
     assert.equal(M.membersText([]), null);
     assert.equal(M.membersText(undefined), null);
     assert.equal(M.membersText(['Ana Pérez', ' ', 'Luis Gómez']), 'Ana Pérez · Luis Gómez');
+    assert.equal(
+      M.membersText(require('../js/config.js').members),
+      'Bautista Biscayart · Santino Maya · Milagros Belén Olivera · Zoe Ramljak',
+    );
   });
 
   it('leaves no stub marker on the page', () => {

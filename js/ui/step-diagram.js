@@ -14,6 +14,7 @@
  *                     a single method shows only its own construction and has no method toggles.
  *   opts.visible      with methods 'all': the ids that start checked (default taylor, heun, rk2).
  *   opts.showField    slope field on/off (default true), opts.construction auxiliary points and slopes on/off
+ *                     (the zoom has no option: it is view state, not part of the model)
  *   opts.signal       AbortSignal (pass ctx.signal inside a page): the diagram is destroyed when it aborts
  *
  *   update(next)      merges new options (everything above except `signal`) and repaints at once. A new `problem`
@@ -37,10 +38,35 @@
  * drawn by Chart.js plus one small plugin (slope field, guides, error brackets with their values); without
  * Chart.js the visible readout table is the data alternative, with a one-line notice. No animations.
  *
+ * The value labels are written to the right of the picture, in a margin that `chartOptions` reserves with the
+ * chart's own right padding (`labelColumn` measures it), so that nothing is drawn over the slope field or the
+ * curves. Each label reads "<método> <valor>" and falls back to the bare value, and then to nothing, as the
+ * room shrinks; the names come from the engine's registry. The auxiliary construction marks are drawn thinner,
+ * lighter and under every trajectory, so the three methods and the exact curve stay the strongest lines.
+ *
+ * Zoom: the four end values can be a handful of pixels apart (at h = 0.4 the three second-order methods land
+ * about 12 px from each other), so the figure can be zoomed in. chartjs-plugin-zoom is loaded by deps.js and
+ * registered there; this file only configures it (`zoomConfig`) and never requires it: without it the picture
+ * is exactly what it was and the "Zoom" group is never shown. The wheel zooms only with Ctrl held, so a plain
+ * wheel keeps scrolling the page the figure sits in; a drag selects a region and two fingers pinch. The two
+ * buttons are the keyboard and projector route: "Ampliar el final del paso" declares the window `zoomWindow`
+ * computes from the model, "Ver todo" gives the frame back - the single reset of every view. A new problem or a
+ * new h starts at the frame again, and the marks the `edoStep` plugin draws in pixel space leave out whatever
+ * the view no longer contains.
+ *
+ * One value at a time: with a small h the four end values differ in the fourth decimal only, so the preset
+ * window holds all of them and resolves none. Clicking the value label of a method (or of the exact value)
+ * declares `zoomWindowFor`'s window instead: centred on that one value, tight enough that it stands alone with
+ * its closest neighbour still in view. The labels are painted on the canvas, so the plugin records the hit
+ * rectangle of each row as it draws it (`labelRects`, `labelAt`) and the figure hit-tests the click and the
+ * hover itself; a canvas cannot be reached by keyboard, so the y_{n+1} of every readout row is the same action
+ * as a real button named "Ampliar en <método>", and both routes end in exactly the same view.
+ *
  * The pure part (`model`, `readout`, `stepAt`, `frameFor`, `valueText`, `errorText`, plus `buildDatasets`,
- * `chartOptions`, `spreadLabels` and the Chart.js `plugin`) also `require`s in Node without a DOM, where it is
- * unit-tested; `_env` is the test seam (set `_env.charts` to a stub of EDO.charts there).
- * Load order: after charts.js (it uses EDO.dom, EDO.tex, EDO.charts, EDO.prefs, EDO.deps and EDO.bus).
+ * `chartOptions`, `zoomWindow`, `zoomWindowFor`, `focusLabel`, `zoomConfig`, `spreadLabels`, `labelTexts`,
+ * `labelColumn`, `labelRects`, `labelAt`, `textWidth` and the Chart.js `plugin`) also `require`s in Node
+ * without a DOM, where it is unit-tested; `_env` is the test seam (set `_env.charts` to a stub of EDO.charts).
+ * Load order: after charts.js (it uses EDO.dom, EDO.tex, EDO.charts, EDO.prefs, EDO.deps, EDO.app and EDO.bus).
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -195,6 +221,122 @@
     return { xMin, xMax, yMin: lo - pad, yMax: hi + pad };
   }
 
+  /* ---- The zoomed window on the end of the step ------------------------------------------------------- */
+
+  /** Margin around the end values of the zoomed window, as a share of the distance they span. */
+  const ZOOM_PAD = 0.18;
+  /** How much of the step is kept to the left of x_{n+1}, so the last stretch of every path is in view. */
+  const ZOOM_X_BEFORE = 0.45;
+  /** And to its right, where the error marks and the label column live. */
+  const ZOOM_X_AFTER = 0.22;
+  /** The exact (or reference) value, as a target of a zoom: it is not a method, so it needs an id of its own. */
+  const EXACT_ID = 'exact';
+
+  /** The ids that really are drawn: in the catalogue, among the ones asked for, and with a finite y_{n+1}. */
+  function shownIds(m, ids) {
+    const all = (m && m.methods) || {};
+    return (ids || IDS).filter((id) => IDS.includes(id) && all[id] && all[id].valid);
+  }
+
+  /**
+   * A window at the end of the step over the ordinates `[lo, hi]`: the abscissas are x_{n+1} with a slice of the
+   * step on each side, and every edge is kept inside the model's frame - which is what makes a zoom window able
+   * only to zoom in, never out past the picture's own frame.
+   */
+  function endWindow(m, lo, hi) {
+    const f = m.frame || {};
+    const low = (value, bound) => (finite(bound) ? Math.max(bound, value) : value);
+    const high = (value, bound) => (finite(bound) ? Math.min(bound, value) : value);
+    return {
+      xMin: low(m.x1 - ZOOM_X_BEFORE * m.h, f.xMin),
+      xMax: high(m.x1 + ZOOM_X_AFTER * m.h, f.xMax),
+      yMin: low(lo, f.yMin),
+      yMax: high(hi, f.yMax),
+    };
+  }
+
+  /**
+   * The window of the "Ampliar el final del paso" preset: x_{n+1} with a slice of the step on each side, and
+   * the ordinates of the shown methods together with the exact (or reference) value they are compared with,
+   * with a small margin. At h = 0.4 the three second-order methods land 0.064 apart over a frame about 2.8
+   * tall; this window is about 0.45 tall, so the same pixels now separate them.
+   *
+   * Every number comes from the model: this only chooses which of them the view has to contain. The window is
+   * kept inside the model's frame, so the preset can only ever zoom in - where the end values already fill the
+   * frame (the largest step of a steep problem) it simply has nothing to gain.
+   * @param {object} m Result of `model`.
+   * @param {string[]} [ids] Method ids that are drawn (default: all of them).
+   * @returns {?{xMin: number, xMax: number, yMin: number, yMax: number}} Null when there is nothing to frame.
+   */
+  function zoomWindow(m, ids) {
+    if (!m || !finite(m.x1) || !finite(m.h)) return null;
+    const vals = shownIds(m, ids).map((id) => m.methods[id].y1).concat([m.exact]).filter(finite);
+    if (!vals.length) return null;
+    const lo = Math.min(...vals);
+    const hi = Math.max(...vals);
+    const pad = (hi - lo || Math.abs(hi) || 1) * ZOOM_PAD;
+    return endWindow(m, lo - pad, hi + pad);
+  }
+
+  /* ---- The close-up of one value --------------------------------------------------------------------- */
+
+  /**
+   * Half-height of a close-up, as a multiple of the distance to the closest other value: the neighbour lands
+   * about seven tenths of the way out, so the value asked for is alone in the middle and the neighbour is
+   * still inside the picture as context.
+   */
+  const ZOOM_FOCUS_SPAN = 1.4;
+  /**
+   * Smallest half-height of a close-up, as a share of the value it frames: a window one unit wide in the
+   * fourth decimal, which is what the readout writes. It takes over exactly when the values coincide to those
+   * digits, so a close-up can never collapse onto a single ordinate.
+   */
+  const ZOOM_FOCUS_MIN = 5e-5;
+
+  /**
+   * The window of one value's close-up: the same slice of the step as `zoomWindow` and ordinates centred on the
+   * value asked for. With a small h the four end values differ in the fourth decimal only, so the preset window
+   * holds all of them at once and none of them is resolved; this frames one of them and leaves its closest
+   * neighbour in view. Every number comes from the model and the window is kept inside the model's frame, so it
+   * can only ever zoom in.
+   * @param {object} m Result of `model`.
+   * @param {string[]} [ids] Method ids that are drawn (default: all of them); the others give the context.
+   * @param {string} id The value to frame: a method id, or 'exact' for the exact (or reference) value.
+   * @returns {?{xMin: number, xMax: number, yMin: number, yMax: number}} Null when that value is not there.
+   */
+  function zoomWindowFor(m, ids, id) {
+    if (!m || !finite(m.x1) || !finite(m.h)) return null;
+    const list = shownIds(m, ids);
+    const value = id === EXACT_ID ? m.exact : (list.includes(id) ? m.methods[id].y1 : NaN);
+    if (!finite(value)) return null;
+    const gaps = list.filter((x) => x !== id).map((x) => m.methods[x].y1)
+      .concat(id === EXACT_ID ? [] : [m.exact])
+      .filter(finite)
+      .map((v) => Math.abs(v - value))
+      .filter((d) => d > 0);
+    const half = Math.max(
+      gaps.length ? ZOOM_FOCUS_SPAN * Math.min(...gaps) : 0,
+      ZOOM_FOCUS_MIN * Math.max(Math.abs(value), 1),
+    );
+    return endWindow(m, value - half, value + half);
+  }
+
+  /** How a value is named by the control that frames it: the method's own name, or the exact / reference value. */
+  function focusName(id, reference) {
+    if (id === EXACT_ID) return reference ? 'el valor de referencia' : 'el valor exacto';
+    return LABELS[id] || id;
+  }
+
+  /**
+   * Name of the control that frames one value in the picture, both in the canvas label and in the readout row.
+   * @param {string} id A method id, or 'exact'.
+   * @param {boolean} [reference] True when the thin curve is the RK4 reference instead of the exact solution.
+   * @returns {string} "Ampliar en Euler Mejorado", "Ampliar en el valor exacto".
+   */
+  function focusLabel(id, reference) {
+    return `Ampliar en ${focusName(id, reference)}`;
+  }
+
   /** The dense curve (exact or RK4 reference) over the frame, without non-finite points. */
   function curveFor(problem, x0, y0, frame) {
     const base = stepProblem(problem, x0, y0, DEFAULTS.hStep);
@@ -282,6 +424,21 @@
     return format.num(v, { decimals: decimalsOf(d), mode: d.mode === 'trunc' ? 'trunc' : 'round' });
   }
 
+  /**
+   * How the value label of a method may be written in the picture, the most informative wording first: the
+   * name of the method and its value, the same without the qualifier between brackets, and the bare value
+   * (the picture writes the first one that fits). The name is the engine's own, never one written here.
+   * @param {string} id Method id.
+   * @param {string} value The value as text.
+   * @returns {string[]} The wordings, without repetitions.
+   */
+  function labelTexts(id, value) {
+    const entry = methods.byId(id);
+    const name = (entry && entry.label) || id;
+    const short = name.replace(/\s*\([^)]*\)\s*$/, '');
+    return Array.from(new Set([`${name} ${value}`, `${short} ${value}`, value]));
+  }
+
   /** Errors with 4 decimals, or 3 significant digits in scientific form below 1e-3 (a fixed format shows 0 there). */
   function errorText(v) {
     if (!finite(v)) return '—';
@@ -303,8 +460,9 @@
    * @param {object} m Result of `model`.
    * @param {string[]} ids Method ids to list.
    * @param {{decimals?: number, mode?: 'round'|'trunc'}} [display] How y values are shown (EDO.prefs `display`).
-   * @returns {{rows: object[], exactText: string, exactLabel: string, sentence: string}}
-   *   `rows[i]` is `{id, label, construction, y1Text, errorText}`; `sentence` is the whole readout in one phrase.
+   * @returns {{rows: object[], exactText: string, exactLabel: string, exactZoomLabel: string, sentence: string}}
+   *   `rows[i]` is `{id, label, construction, y1Text, errorText, zoomLabel}`, where `zoomLabel` names the
+   *   control that frames that row's value in the picture; `sentence` is the whole readout in one phrase.
    */
   function readout(m, ids, display) {
     const list = (ids || IDS).filter((id) => IDS.includes(id));
@@ -316,6 +474,7 @@
         construction: constructionText(e, display),
         y1Text: e.valid ? valueText(e.y1, display) : '—',
         errorText: e.valid ? errorText(e.error) : '—',
+        zoomLabel: focusLabel(id, m.reference),
       };
     });
     const exactLabel = m.reference ? 'Referencia (RK4)' : 'Exacta';
@@ -326,7 +485,9 @@
     const start = `(${format.num(m.x0, { decimals: 4 })}, ${format.num(m.y0, { decimals: 4 })})`;
     const target = `Valor ${m.reference ? 'de referencia' : 'exacto'} en ${indep} = ${format.num(m.x1, { decimals: 4 })}: ${exactText}.`;
     const sentence = `Paso h = ${h} desde ${start}. ${target}${parts.length ? ` ${parts.join('; ')}.` : ''}`;
-    return { rows, exactText, exactLabel, sentence };
+    return {
+      rows, exactText, exactLabel, exactZoomLabel: focusLabel(EXACT_ID, m.reference), sentence,
+    };
   }
 
   /* ======================================================================================================
@@ -417,6 +578,174 @@
     ctx.fill();
   }
 
+  /* ---- Weight of the auxiliary construction marks --------------------------------------------------------- */
+
+  /** The construction (predictor, midpoint probe and their segments) against the weight of a method's own path. */
+  const AUX_WIDTH = 0.42;
+  const AUX_ALPHA = 0.5;
+  const AUX_POINT_ALPHA = 0.75;
+  const AUX_BEHIND = 8; // added to the draw order, so the construction stays under every trajectory
+
+  /**
+   * The same colour with an alpha applied, when the colour can be read (the CSS tokens are hex, a computed
+   * value may be `rgb(...)`); anything else is returned untouched, so a colour is never lost.
+   * @param {string} color CSS colour.
+   * @param {number} alpha 0..1.
+   * @returns {string} The colour with that alpha, or `color`.
+   */
+  function fade(color, alpha) {
+    const value = String(color === undefined || color === null ? '' : color).trim();
+    const a = clamp(alpha, 0, 1);
+    const hex = /^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(value);
+    if (hex) {
+      const digits = hex[1];
+      const rgb = digits.length <= 4 ? digits.slice(0, 3).split('').map((ch) => ch + ch).join('') : digits.slice(0, 6);
+      return `#${rgb}${Math.round(a * 255).toString(16).padStart(2, '0')}`;
+    }
+    const parts = /^rgba?\(([^)]*)\)$/i.exec(value);
+    if (parts) {
+      const channels = parts[1].split(/[\s,/]+/).filter(Boolean).slice(0, 3);
+      if (channels.length === 3) return `rgba(${channels.join(', ')}, ${a})`;
+    }
+    return value;
+  }
+
+  /* ---- The column of value labels (geometry shared by the plugin and the chart options) ------------------ */
+
+  /** Radius of the marker at y_{n+1}: small enough that two methods 12 px apart do not merge. */
+  const END_MARKER_RADIUS = 3.4;
+
+  /** Ring thickness of that marker: it is drawn hollow so an overlapping pair stays legible. */
+  const END_MARKER_RING = 1.75;
+
+  /** The error marks are hairlines: the gap they measure is the message, not the stroke. */
+  const ERROR_MARK_WIDTH = 1;
+
+  /** Opacity of an error mark, low enough to stay behind the end markers it sits next to. */
+  const ERROR_MARK_ALPHA = 0.55;
+
+  /** Horizontal distance between two error brackets. */
+  const bracketGap = (size) => Math.max(8, size * 0.75);
+
+  /** Radius of the marker that goes with a value label. */
+  const markerRadius = (size) => Math.max(3, size * 0.32);
+
+  /** Share of the canvas the label column may take before the labels start falling back to shorter wordings. */
+  const COLUMN_MAX = 0.36;
+  /** The reserved column is a little wider than measured: the figure's font may not be the one measured yet. */
+  const COLUMN_SLACK = 1.08;
+
+  /** Air to the left and to the right of a label's hit rectangle: a click a pixel off its glyphs still lands. */
+  const HIT_PAD = 3;
+  /** Half-height of that rectangle, as a share of the font size: exactly the rows `spreadLabels` keeps apart. */
+  const HIT_HALF = 0.8;
+
+  /**
+   * The hit rectangles of the value labels, per chart, as the plugin draws them. The labels are painted on the
+   * canvas and are not elements, so this is what a click and a hover have to be tested against; `labelAt` is
+   * the only reader. The list is written on every pass - empty when nothing was drawn - so a rectangle never
+   * outlives the label it belongs to, nor the view that placed it.
+   */
+  const labelHitMap = new WeakMap();
+
+  /**
+   * The hit rectangles of the labels this chart drew last, in the order they were drawn.
+   * @param {object} chart A Chart.js instance.
+   * @returns {Array<{id: string, left: number, top: number, right: number, bottom: number}>} Empty when the
+   *   chart drew no label (no room for one, or the plugin is not active).
+   */
+  function labelRects(chart) {
+    const hits = chart ? labelHitMap.get(chart) : null;
+    return hits ? hits.slice() : [];
+  }
+
+  /**
+   * The value label at one point of the canvas, in the chart's own pixel space.
+   * @param {object} chart A Chart.js instance.
+   * @param {number} px Distance from the left edge of the canvas.
+   * @param {number} py Distance from its top edge.
+   * @returns {?string} A method id, 'exact', or null where there is no label.
+   */
+  function labelAt(chart, px, py) {
+    if (!finite(px) || !finite(py)) return null;
+    const hit = labelRects(chart).find((r) => px >= r.left && px <= r.right && py >= r.top && py <= r.bottom);
+    return hit ? hit.id : null;
+  }
+
+  let measureCanvas = null;
+
+  /**
+   * Width of a label at the figure's font: a real canvas measurement in the browser and, without one (Node,
+   * where the options are unit-tested), an estimate from the number of characters that errs on the wide side.
+   * @param {string} str The text.
+   * @param {number} size Font size in px.
+   * @param {string} [family] Font family.
+   * @returns {number} Width in px (0 for an empty text).
+   */
+  function textWidth(str, size, family) {
+    const value = str === undefined || str === null ? '' : String(str);
+    if (!value) return 0;
+    if (win && win.document) {
+      try {
+        measureCanvas = measureCanvas || win.document.createElement('canvas');
+        const ctx = measureCanvas.getContext('2d');
+        if (ctx) {
+          ctx.font = `${size}px ${family || 'sans-serif'}`;
+          return ctx.measureText(value).width;
+        }
+      } catch (err) {
+        /* no canvas here: the estimate below is enough to reserve the room */
+      }
+    }
+    return value.length * size * 0.56;
+  }
+
+  /**
+   * The column of value labels lives in the margin that `layout.padding.right` reserves for it, so that no
+   * label lands on the slope field or on the curves. Offsets are measured from `area.right`.
+   * @param {number} size Font size in px.
+   * @param {number} widest Width in px of the widest label text (0 when there is no label).
+   * @returns {{radius: number, marker: number, text: number, edge: number, width: number}} `marker` and `text`
+   *   are the offsets of the marker centre and of the text; `width` is the padding the column needs.
+   */
+  function labelColumn(size, widest) {
+    const radius = markerRadius(size);
+    const lead = Math.max(6, size * 0.55); // clean air between the drawing and the column
+    const pad = Math.max(4, size * 0.4); // between a marker and its text
+    const edge = Math.max(3, size * 0.3); // between the text and the right edge of the canvas
+    const marker = lead + radius;
+    const text = marker + radius + pad;
+    return {
+      radius, marker, text, edge, width: widest > 0 ? text + widest + edge : lead,
+    };
+  }
+
+  /**
+   * The padding the label column needs: every label is written in the first wording of its list that fits, so
+   * the column is measured with the first wording the whole column can afford, and never grows past `max`.
+   * The measurement is taken with the font the browser has at hand, which is not always the one the figure
+   * ends up drawn with (a canvas never asks for a font itself), hence the small slack.
+   * @param {number} size Font size in px.
+   * @param {string} family Font family.
+   * @param {string[][]} lists One list of wordings per label, the most informative first.
+   * @param {number} [max] Largest padding allowed (the canvas is not known in Node: then there is no limit).
+   * @returns {number} Padding in px.
+   */
+  function reserveColumn(size, family, lists, max) {
+    const limit = finite(max) && max > 0 ? max : Infinity;
+    const rungs = Math.max(0, ...lists.map((texts) => texts.length));
+    // The ladders are lined up at their last rung (the shortest wording), so a label with fewer wordings is
+    // not already down to its bare value while the others still carry the name of their method.
+    const rung = (texts, r) => texts[clamp(texts.length - rungs + r, 0, texts.length - 1)];
+    let width = labelColumn(size, 0).width;
+    for (let r = 0; r < rungs; r += 1) {
+      const widest = Math.max(0, ...lists.map((texts) => textWidth(rung(texts, r), size, family)));
+      width = labelColumn(size, widest * COLUMN_SLACK).width;
+      if (width <= limit) break;
+    }
+    return Math.min(width, limit);
+  }
+
   /** Text with a halo in the surface colour, so it stays readable over the slope field and the curves. */
   function haloText(ctx, str, x, y, halo, fill, align, baseline) {
     ctx.textAlign = align || 'left';
@@ -494,6 +823,8 @@
     },
 
     afterDatasetsDraw(chart, args, o) {
+      // Nothing drawn, no label to click: the rectangles of the previous pass are dropped first of all.
+      labelHitMap.set(chart, []);
       if (!o || !o.active) return;
       const area = chart.chartArea;
       const sx = chart.scales.x;
@@ -506,16 +837,22 @@
       const ink = cssVar('--ink', '#0f1a2b');
       const px0 = sx.getPixelForValue(o.x0);
       const px1 = sx.getPixelForValue(o.x1);
+      // Zooming and panning move the scales under these pixel-space marks: anything whose abscissa or
+      // ordinate has left the plotting area is left out instead of being drawn over the axes or outside
+      // the canvas. Nothing changes while the view is the model's own frame, where everything is inside.
+      const inX = (px) => px >= area.left - 0.5 && px <= area.right + 0.5;
+      const inY = (py) => py >= area.top - 0.5 && py <= area.bottom + 0.5;
+      const clampY = (py) => clamp(py, area.top, area.bottom);
       ctx.save();
 
       // x_n and x_{n+1} flank the step, above the plotting area.
       ctx.fillStyle = text;
       const labelY = area.top - Math.max(5, size * 0.45);
-      drawSubscripted(ctx, 'x', 'n', px0 - 4, labelY, size, family, 'right');
-      drawSubscripted(ctx, 'x', 'n+1', px1 + 4, labelY, size, family, 'left');
+      if (inX(px0)) drawSubscripted(ctx, 'x', 'n', px0 - 4, labelY, size, family, 'right');
+      if (inX(px1)) drawSubscripted(ctx, 'x', 'n+1', px1 + 4, labelY, size, family, 'left');
 
       // The step h as a dimension line near the bottom edge.
-      if (px1 - px0 > size * 1.6) {
+      if (px1 - px0 > size * 1.6 && inX(px0) && inX(px1)) {
         const yy = area.bottom - Math.max(8, size * 0.8);
         ctx.strokeStyle = text;
         ctx.lineWidth = 1.25;
@@ -532,67 +869,89 @@
         haloText(ctx, 'h', (px0 + px1) / 2, yy - 5, cssVar('--surface', '#ffffff'), text, 'center', 'alphabetic');
       }
 
-      // Error brackets: one vertical segment per method from its y_{n+1} to the exact value, side by side.
+      // Error marks: one hairline per method, from its y_{n+1} up to the exact value, side by side next to
+      // x_{n+1}. No caps and low opacity on purpose: the four end markers already meet in this corner, and the
+      // numbers live in the labels and in the readout table, so these only have to show which gap is larger.
       const list = o.brackets || [];
-      const gap = Math.max(8, size * 0.75);
-      const cap = Math.max(3, size * 0.24);
+      const gap = bracketGap(size);
       const first = px1 + (o.clear || 8);
+      ctx.save();
+      ctx.globalAlpha = ERROR_MARK_ALPHA;
       list.forEach((b, i) => {
         const bx = first + i * gap;
-        const ya = sy.getPixelForValue(b.y1);
-        const yb = sy.getPixelForValue(b.y2);
+        // A mark is anchored to x_{n+1} and lives between it and the label column: both ends are kept
+        // inside the plotting area, and a mark that no longer fits there is not drawn at all.
+        if (!inX(px1) || bx > area.right || bx < area.left) return;
+        const y1 = sy.getPixelForValue(b.y1);
+        const y2 = sy.getPixelForValue(b.y2);
+        if (!inY(y1) && !inY(y2) && (y1 < area.top) === (y2 < area.top)) return;
         ctx.strokeStyle = b.color;
-        ctx.lineWidth = b.width;
+        ctx.lineWidth = ERROR_MARK_WIDTH;
         ctx.lineCap = 'butt';
         ctx.setLineDash([]);
         ctx.beginPath();
-        ctx.moveTo(bx, ya);
-        ctx.lineTo(bx, yb);
-        ctx.moveTo(bx - cap, ya);
-        ctx.lineTo(bx + cap, ya);
-        if (Math.abs(ya - yb) > 1.5) {
-          ctx.moveTo(bx - cap, yb);
-          ctx.lineTo(bx + cap, yb);
-        }
+        ctx.moveTo(bx, clampY(y1));
+        ctx.lineTo(bx, clampY(y2));
         ctx.stroke();
       });
+      ctx.restore();
 
-      // Value labels in one column to the right of the brackets: the exact value and every y_{n+1}, each with the
-      // marker of its method, spread apart so that they never overlap. A label that does not fit is left out
-      // (the readout table next to the picture always has the numbers).
-      const radius = Math.max(3, size * 0.32);
-      const markerX = first + Math.max(0, list.length - 1) * gap + gap + 6 + radius;
-      const textX = markerX + radius + 6;
+      // Value labels in the margin the chart options reserve to the right of the plotting area (never over the
+      // drawing): the exact value and every y_{n+1}, each with the marker of its method and the name of the
+      // method before the number, spread apart so that they never overlap. A label that does not fit falls back
+      // to a shorter wording and, as a last resort, is left out (the readout table always has the numbers).
+      const column = labelColumn(size, 0);
+      const radius = column.radius;
+      const markerX = area.right + column.marker;
+      const textX = area.right + column.text;
       const items = [];
       if (o.exactLabel) {
         const withValue = o.exactText ? `${o.exactLabel} ${o.exactText}` : '';
         items.push({
-          y: sy.getPixelForValue(o.exactY), shape: 'line', color: ink, ink: true, texts: [withValue, o.exactLabel].filter(Boolean),
+          id: EXACT_ID, y: sy.getPixelForValue(o.exactY), shape: 'line', color: ink, ink: true, texts: [withValue, o.exactLabel].filter(Boolean),
         });
       }
       list.forEach((b) => {
-        if (b.label) items.push({ y: sy.getPixelForValue(b.y1), shape: b.shape, color: b.color, texts: [b.label] });
+        const texts = (b.texts || []).filter(Boolean);
+        if (texts.length) {
+          items.push({
+            id: b.id, y: sy.getPixelForValue(b.y1), shape: b.shape, color: b.color, texts,
+          });
+        }
       });
       ctx.font = `${size}px ${family}`;
-      const room = chart.width - 2 - textX;
+      const room = chart.width - column.edge - textX;
+      /** The first wording that fits, with the width it was measured at (the hit rectangle needs it too). */
+      const fitting = (texts) => {
+        for (let k = 0; k < texts.length; k += 1) {
+          const w = ctx.measureText(texts[k]).width;
+          if (w <= room + 0.5) return { text: texts[k], textWidth: w };
+        }
+        return {};
+      };
       const shown = items
-        .map((item) => Object.assign(item, { text: item.texts.find((t) => ctx.measureText(t).width <= room) }))
+        // A value the view no longer shows gets no label: `spreadLabels` would clamp it to the edge of the
+        // column and point at a row where its marker is not.
+        .filter((item) => inY(item.y))
+        .map((item) => Object.assign(item, fitting(item.texts)))
         .filter((item) => item.text);
       const rows = spreadLabels(shown.map((s) => s.y), size * 1.6, area.top + size * 0.8, area.bottom - size * 0.8);
       const halo = cssVar('--surface', '#ffffff');
       shown.forEach((item, i) => {
-        // A plate in the surface colour under marker and text, so the slope field never runs through a label.
-        ctx.save();
-        ctx.globalAlpha = 0.92;
-        ctx.fillStyle = halo;
-        const left = markerX - radius - 4;
-        ctx.fillRect(left, rows[i] - size * 0.75, textX + ctx.measureText(item.text).width + 4 - left, size * 1.5);
-        ctx.restore();
         ctx.fillStyle = item.color;
         drawMarker(ctx, item.shape, markerX, rows[i], radius);
         ctx.font = `${size}px ${family}`;
         haloText(ctx, item.text, textX, rows[i], halo, item.ink ? ink : text);
       });
+      // Where each label ended up: a click on one of them is a close-up of its own value, and only the drawing
+      // knows where the row landed once `spreadLabels` has moved it.
+      labelHitMap.set(chart, shown.map((item, i) => ({
+        id: item.id,
+        left: markerX - radius - HIT_PAD,
+        top: rows[i] - size * HIT_HALF,
+        right: textX + item.textWidth + HIT_PAD,
+        bottom: rows[i] + size * HIT_HALF,
+      })).filter((r) => typeof r.id === 'string' && r.id));
       ctx.restore();
     },
   };
@@ -622,7 +981,6 @@
     const surface = cssVar('--surface', '#ffffff');
     const ex = style('exact');
     const sets = [];
-    const bigger = 1.7;
     const dataset = (label, data, s, extra) => Object.assign({
       type: 'line',
       label,
@@ -643,11 +1001,23 @@
       order: s.order,
     }, extra || {});
     const lastOnly = (n, r) => Array.from({ length: n }, (v, i) => (i === n - 1 ? r : 0));
-    const thin = (s) => ({ borderWidth: Math.max(1.25, s.width * 0.5), borderDash: [] });
-    const hollow = (s, r, n) => ({
-      pointRadius: lastOnly(n, r), pointBackgroundColor: surface, pointBorderColor: s.color, pointBorderWidth: Math.max(2, s.width * 0.8),
+    // The construction is secondary: thinner, lighter and drawn under every trajectory (Chart.js draws a
+    // higher `order` first), so the three method paths and the exact curve stay the strongest lines.
+    const thin = (s) => ({
+      borderWidth: Math.max(1, s.width * AUX_WIDTH), borderDash: [], borderColor: fade(s.color, AUX_ALPHA), order: s.order + AUX_BEHIND,
     });
-    const filled = (s, n) => ({ pointRadius: lastOnly(n, s.radius * bigger) });
+    const hollow = (s, r, n) => ({
+      pointRadius: lastOnly(n, r), pointBackgroundColor: surface, pointBorderColor: fade(s.color, AUX_POINT_ALPHA), pointBorderWidth: Math.max(1.25, s.width * 0.45),
+    });
+    // The three methods can land within a few pixels of each other (at h = 0.4 they are 0.064 apart, about
+    // 12 px), so the end marker is a small ring instead of a disc: rings that overlap stay readable, discs
+    // hide each other. The shape still matches the legend and the readout table.
+    const filled = (s, n) => ({
+      pointRadius: lastOnly(n, END_MARKER_RADIUS),
+      pointBackgroundColor: surface,
+      pointBorderColor: s.color,
+      pointBorderWidth: END_MARKER_RING,
+    });
 
     const reference = m.reference;
     sets.push(dataset(reference ? 'Referencia (RK4)' : 'Solución exacta', m.curve, ex, { order: 0 }));
@@ -664,13 +1034,13 @@
         sets.push(dataset('Taylor: parábola de grado 2', e.curve, s, filled(s, e.curve.length)));
       } else if (id === 'heun') {
         if (aux) {
-          sets.push(dataset('Euler Mejorado: predictor (paso de Euler)', e.predLine, s, Object.assign(thin(s), hollow(s, s.radius * 1.25, 2))));
+          sets.push(dataset('Euler Mejorado: predictor (paso de Euler)', e.predLine, s, Object.assign(thin(s), hollow(s, s.radius * 1.05, 2))));
           sets.push(dataset('Euler Mejorado: pendiente en el predictor', e.tick, s, thin(s)));
         }
         sets.push(dataset('Euler Mejorado: pendiente promedio', e.line, s, filled(s, 2)));
       } else {
         if (aux) {
-          sets.push(dataset('RK2: medio paso de Euler hasta el punto medio', e.halfLine, s, Object.assign(thin(s), hollow(s, s.radius * 1.25, 2))));
+          sets.push(dataset('RK2: medio paso de Euler hasta el punto medio', e.halfLine, s, Object.assign(thin(s), hollow(s, s.radius * 1.05, 2))));
           sets.push(dataset('RK2: pendiente en el punto medio', e.tick, s, thin(s)));
         }
         sets.push(dataset('RK2: paso completo con la pendiente del punto medio', e.line, s, filled(s, 2)));
@@ -678,23 +1048,78 @@
     });
 
     sets.push(dataset('Punto de partida', [{ x: m.x0, y: m.y0 }], ex, {
-      order: -2, pointStyle: 'circle', pointRadius: Math.max(4.5, ex.radius * 1.6), pointBackgroundColor: ex.color, pointBorderColor: surface, pointBorderWidth: 2,
+      order: -2, pointStyle: 'circle', pointRadius: Math.max(3.5, ex.radius * 1.15), pointBackgroundColor: ex.color, pointBorderColor: surface, pointBorderWidth: 2,
     }));
     sets.push(dataset(reference ? 'Referencia en x_{n+1}' : 'Valor exacto en x_{n+1}', [{ x: m.x1, y: m.exact }], ex, {
-      order: -2, pointStyle: 'circle', pointRadius: Math.max(5.5, ex.radius * 1.9), pointBackgroundColor: surface, pointBorderColor: ex.color, pointBorderWidth: Math.max(2.25, ex.width * 1.4),
+      order: -2, pointStyle: 'circle', pointRadius: Math.max(4.5, ex.radius * 1.4), pointBackgroundColor: surface, pointBorderColor: ex.color, pointBorderWidth: Math.max(2.25, ex.width * 1.4),
     }));
     return sets;
   }
 
+  /* ---- chartjs-plugin-zoom ------------------------------------------------------------------------------- */
+
+  const ZOOM_PLUGIN_ID = 'zoom';
+
+  /** How far in the view may be pushed, as a share of the model's own frame: past this the picture is noise. */
+  const ZOOM_MAX_IN = 0.01;
+
+  /**
+   * Options of chartjs-plugin-zoom for this figure, written so that it can never hijack the page: the wheel
+   * only zooms while Ctrl is held (a plain wheel is left alone and keeps scrolling the long page it sits in),
+   * a Shift + drag selects the region to zoom to, and two fingers pinch. Panning is direct (plain drag) and is
+   * left off where any pointer is coarse: Hammer.js would set `touch-action: none` on the canvas and a one-finger
+   * drag over the figure would stop scrolling the page.
+   * @param {object} [opts] `{frame}` the model's frame (the zoom-out limit and the finest zoom come from it),
+   *   `{pan}` whether a plain drag may pan, `{onChange}` called once a gesture has moved the view (the
+   *   preset's pressed state follows it).
+   * @returns {object} The value of `plugins.zoom`.
+   */
+  function zoomConfig(opts) {
+    const o = opts || {};
+    const frame = o.frame;
+    const moved = typeof o.onChange === 'function' ? () => o.onChange() : undefined;
+    const span = (min, max) => (finite(min) && finite(max) && max > min ? max - min : undefined);
+    const limits = frame ? {
+      x: { min: frame.xMin, max: frame.xMax, minRange: span(frame.xMin, frame.xMax) * ZOOM_MAX_IN },
+      y: { min: frame.yMin, max: frame.yMax, minRange: span(frame.yMin, frame.yMax) * ZOOM_MAX_IN },
+    } : {};
+    return {
+      zoom: {
+        wheel: { enabled: true, modifierKey: 'ctrl', speed: 0.08 },
+        drag: {
+          enabled: true,
+          modifierKey: 'shift',
+          backgroundColor: fade(cssVar('--ink-2', '#37465c'), 0.12),
+          borderColor: cssVar('--border-strong', '#6f7c91'),
+          borderWidth: 1,
+          threshold: 6,
+        },
+        pinch: { enabled: true },
+        mode: 'xy',
+        onZoomComplete: moved,
+      },
+      pan: {
+        enabled: Boolean(o.pan), mode: 'xy', threshold: 8, onPanComplete: moved,
+      },
+      limits,
+    };
+  }
+
   /**
    * Chart.js options of one model: the fixed frame, no interaction (the picture is a figure, the readout is the
-   * data) and the `edoStep` plugin options: guides, slope field, and per shown method a bracket
-   * `{y1, y2, color, width, shape, label}` from its y_{n+1} to the exact value.
+   * data), a right padding that reserves the margin of the value labels, and the `edoStep` plugin options:
+   * guides, slope field, and per shown method a bracket `{id, y1, y2, color, width, shape, texts}` from its
+   * y_{n+1} to the exact value (`texts` are the wordings of its label, the most informative first).
    * @param {object} m Result of `model`.
    * @param {object} st `{visible, showField}` (the normalized options of the model do).
    * @param {{decimals?: number, mode?: string}} [display] How the value labels are written.
+   * @param {number} [width] Width of the canvas in px, when it is known: the label column never takes more
+   *   than a share of it, and the labels fall back to a shorter wording instead.
+   * @param {object} [zoom] Zoom state, when chartjs-plugin-zoom is there: `{enabled}` adds its options,
+   *   `{view}` a `{xMin, xMax, yMin, yMax}` window the scales use instead of the model's frame, and
+   *   `{animated: false}` pins the zoom transition to zero (prefers-reduced-motion), `{pan}` see `zoomConfig`.
    */
-  function chartOptions(m, st, display) {
+  function chartOptions(m, st, display, width, zoom) {
     const style = (id) => EDO.charts.methodStyle(id);
     const size = parseFloat(cssVar('--chart-font', '13')) || 13;
     const fontPx = /rem$/.test(cssVar('--chart-font', '')) ? size * (parseFloat(win.getComputedStyle(win.document.documentElement).fontSize) || 16) : size;
@@ -702,24 +1127,38 @@
     const brackets = shown.map((id) => {
       const s = style(id);
       return {
+        id,
         y1: m.methods[id].y1,
         y2: m.exact,
         color: s.color,
         width: Math.max(1.75, s.width * 0.85),
         shape: s.pointStyle,
-        label: valueText(m.methods[id].y1, display),
+        texts: labelTexts(id, valueText(m.methods[id].y1, display)),
       };
     });
-    const radius = Math.max(0, ...shown.map((id) => style(id).radius * 1.7), style('exact').radius * 1.9);
-    const frame = m.frame;
+    const radius = Math.max(0, END_MARKER_RADIUS + END_MARKER_RING, style('exact').radius * 1.4);
+    const z = zoom || {};
+    // The declared view: the preset window while it is on, and the model's own frame otherwise. The plugin
+    // writes its wheel, drag and pinch zooms straight into the live scales, so a repaint (a new h, a new
+    // problem, a theme change) hands the picture back to whatever is declared here - which is why the zoom
+    // resets by itself when the numbers change.
+    const frame = z.view && finite(z.view.xMin) && z.view.xMax > z.view.xMin && z.view.yMax > z.view.yMin ? z.view : m.frame;
+    const exactLabel = m.reference ? 'referencia' : 'exacto';
+    const exactText = valueText(m.exact, display);
+    const column = reserveColumn(fontPx, cssVar('--font-sans', 'sans-serif'),
+      brackets.map((b) => b.texts).concat([[`${exactLabel} ${exactText}`, exactLabel]]),
+      finite(width) && width > 0 ? width * COLUMN_MAX : undefined);
     return {
       events: [],
-      layout: { padding: { top: Math.round(fontPx * 2), right: 6 } },
+      layout: { padding: { top: Math.round(fontPx * 2), right: Math.ceil(column) } },
       scales: {
         // includeBounds: false keeps the frame's own edges (not round numbers) from showing up as ticks.
         x: { type: 'linear', min: frame.xMin, max: frame.xMax, title: { display: true, text: m.base.indep || 'x' }, ticks: { maxTicksLimit: 8, includeBounds: false } },
         y: { type: 'linear', min: frame.yMin, max: frame.yMax, title: { display: true, text: 'y' }, ticks: { maxTicksLimit: 7, includeBounds: false } },
       },
+      // The figure never animates (charts.js sets `animation: false`); under prefers-reduced-motion the
+      // zoom transition is pinned to zero as well, so no setting can turn a zoom into motion.
+      ...(z.animated === false ? { transitions: { zoom: { animation: { duration: 0 } } } } : {}),
       plugins: {
         legend: { display: false },
         tooltip: { enabled: false },
@@ -730,10 +1169,11 @@
           field: { enabled: st.showField, f: m.base.f },
           brackets,
           clear: Math.ceil(radius) + 5,
-          exactLabel: m.reference ? 'referencia' : 'exacto',
-          exactText: valueText(m.exact, display),
+          exactLabel,
+          exactText,
           exactY: m.exact,
         },
+        ...(z.enabled ? { [ZOOM_PLUGIN_ID]: zoomConfig({ frame: m.frame, pan: z.pan, animated: z.animated }) } : {}),
       },
     };
   }
@@ -745,6 +1185,25 @@
   const SUMMARY_DELAY_MS = 350;
   const CHART_WAIT_FRAMES = 180;
   const FALLBACK_NOTICE = 'No se pudo cargar la biblioteca de gráficos. Se muestran los resultados del paso en la tabla.';
+  const ZOOM_IN_LABEL = 'Ampliar el final del paso';
+  const ZOOM_OUT_LABEL = 'Ver todo';
+  /** The one line that tells the reader the gestures exist: an interaction nobody discovers is worth nothing. */
+  const ZOOM_HINT = 'Ctrl + rueda acerca; arrastre para mover; Shift + arrastre para ampliar. Haga clic en una etiqueta de valor, '
+    + 'o en ese valor de la tabla, para ampliar ese método.';
+  const ZOOM_SAID_IN = 'Vista ampliada en el final del paso.';
+  const ZOOM_SAID_OUT = 'Vista completa del paso.';
+  /** What the live region says when one value has been framed; the name is the control's own. */
+  const zoomSaidAt = (name) => `Vista ampliada en ${name}.`;
+  /** The declared view that is the "Ampliar el final del paso" preset (the others are the id of one value). */
+  const PRESET_VIEW = 'preset';
+  /** A click that travelled further than this was a drag, and a drag belongs to chartjs-plugin-zoom. */
+  const CLICK_SLOP = 4;
+  /**
+   * Hammer.js writes `touch-action: none` on the canvas to recognize the pinch, which would also stop a
+   * one-finger drag over the figure from scrolling the page it sits in the middle of. `pan-y` gives the
+   * vertical scroll back to the browser and still leaves the two-finger gesture to the plugin.
+   */
+  const CANVAS_TOUCH_ACTION = 'pan-y';
   const CANVAS_LABEL = 'Diagrama de un paso sobre el campo de pendientes: la curva exacta y la aproximación de cada método elegido. '
     + 'Los valores están en la tabla de resultados.';
 
@@ -785,22 +1244,56 @@
       construction: first.construction,
     };
     const cache = {};
-    const refs = { methodInputs: {}, switches: {} };
+    const refs = { methodInputs: {}, switches: {}, focus: {} };
     const unsubscribe = [];
     const sliderId = uid('step-h');
     let destroyed = false;
     let chart = null; // the EDO.charts handle
     let chartLost = false; // Chart.js is not available: the table is the data alternative
     let chartWaits = 0;
+    let zoomReady = false; // chartjs-plugin-zoom arrived and is registered: the zoom controls are shown
+    // The declared view: null is the model's own frame, PRESET_VIEW the "Ampliar el final del paso" window,
+    // and any other value the id of the one end value (a method, or 'exact') that is being looked at closely.
+    let zoomView = null;
     let current = null; // the model on screen
     let frameRequest = 0;
     let summaryTimer = 0;
     let lastSummary = '';
     let captionKey = '';
+    let pressedAt = null; // where the pointer went down on the canvas, to tell a click from a drag
 
     const display = () => (EDO.prefs && EDO.prefs.get('display')) || { decimals: 4, mode: 'round' };
+    /**
+     * Width of the picture, so that the label column never eats it on a narrow screen. The box is measured,
+     * not the canvas: before Chart.js sizes it for the first time the canvas still has its default width.
+     */
+    const plotWidth = () => (refs.plot && refs.plot.clientWidth) || (refs.canvas && refs.canvas.clientWidth) || 0;
     const nextFrame = (fn) => (win.requestAnimationFrame ? win.requestAnimationFrame(fn) : win.setTimeout(fn, 16));
     const cancelFrame = (id) => (win.cancelAnimationFrame ? win.cancelAnimationFrame(id) : win.clearTimeout(id));
+    const media = (query) => Boolean(win.matchMedia && win.matchMedia(query).matches);
+    const reduced = () => (EDO.app && EDO.app.reducedMotion ? EDO.app.reducedMotion() : media('(prefers-reduced-motion: reduce)'));
+    /**
+     * Panning is left off wherever any pointer is coarse: Hammer.js takes `touch-action` away from the canvas
+     * to recognize a drag, and a one-finger drag over the figure would then stop scrolling the page.
+     */
+    const panAllowed = () => media('(pointer: fine)') || !media('(any-pointer: coarse)');
+    /**
+     * The window the declared view asks for, straight from the model: the preset's, one value's close-up, or
+     * none at all (the picture's own frame). Null is also the answer when what was framed is no longer there.
+     */
+    function declaredWindow() {
+      if (!current || !zoomView) return null;
+      const ids = current.options.visible;
+      return zoomView === PRESET_VIEW ? zoomWindow(current, ids) : zoomWindowFor(current, ids, zoomView);
+    }
+    /** What the chart options have to say about the zoom: see `chartOptions`. */
+    const zoomState = () => ({
+      enabled: zoomReady,
+      view: declaredWindow(),
+      pan: panAllowed(),
+      animated: !reduced(),
+      onChange: onFreeZoom,
+    });
     /** The colour-and-shape label of a method; "(punto medio)" can be dropped by the CSS where the room is short. */
     const chip = (id, text) => h('span', { class: 'method-chip', 'data-method': id }, text);
     const methodChip = (id) => chip(id, id === 'rk2' ? h('span', null, 'RK2', h('span', { class: 'step-diagram__qual' }, ' (punto medio)')) : CHIP_LABELS[id]);
@@ -833,6 +1326,26 @@
       return h('fieldset', { class: 'step-diagram__group step-diagram__show' },
         h('legend', { class: 'field__label' }, 'Mostrar'),
         h('div', { class: 'step-diagram__toggles' }, sw('showField', 'Campo de pendientes'), sw('construction', 'Construcción del paso')));
+    }
+
+    /**
+     * The zoom, next to the switches that also change the picture: a preset that frames the end of the step
+     * and a reset, both plain buttons so they work from the keyboard and from a projector, plus the one line
+     * that names the gesture. The group stays hidden while chartjs-plugin-zoom is not there.
+     */
+    function buildZoom() {
+      refs.zoomIn = h('button', {
+        type: 'button', class: 'btn', 'data-size': 'sm', 'data-zoom': 'in', 'aria-pressed': zoomView === PRESET_VIEW ? 'true' : 'false',
+      }, ZOOM_IN_LABEL);
+      refs.zoomOut = h('button', {
+        type: 'button', class: 'btn', 'data-size': 'sm', 'data-zoom': 'out',
+      }, ZOOM_OUT_LABEL);
+      refs.zoomIn.addEventListener('click', onZoomIn);
+      refs.zoomOut.addEventListener('click', onZoomOut);
+      return h('fieldset', { class: 'step-diagram__group step-diagram__zoom' },
+        h('legend', { class: 'field__label' }, 'Zoom'),
+        h('div', { class: 'step-diagram__zoom-buttons' }, refs.zoomIn, refs.zoomOut),
+        h('p', { class: 'muted step-diagram__hint' }, ZOOM_HINT));
     }
 
     /** The h slider and, when every method is available, the method toggles. */
@@ -913,12 +1426,34 @@
       Object.keys(refs.switches).forEach((key) => { refs.switches[key].checked = Boolean(o[key]); });
     }
 
+    /**
+     * The y_{n+1} of a row, as the control that frames that value in the picture: the canvas labels are painted
+     * pixels, so this is the keyboard and screen-reader route to the very same close-up, and its accessible name
+     * says which value it frames. Where there is no close-up to reach - no zoom plugin, no picture, a value the
+     * model does not have - the cell is the plain number it has always been, never a control that does nothing.
+     */
+    function focusCell(id, text, label) {
+      if (!zoomReady || chartLost || !declaredFor(id)) return text;
+      const button = h('button', {
+        type: 'button',
+        class: 'step-diagram__focus',
+        'data-focus': id,
+        'aria-label': label,
+        title: label,
+        'aria-pressed': zoomView === id ? 'true' : 'false',
+      }, text);
+      button.addEventListener('click', () => onFocus(id));
+      refs.focus[id] = button;
+      return button;
+    }
+
     function paintReadout() {
       const o = current.options;
       const d = display();
       const ro = readout(current, o.visible, d);
       refs.tableNote.textContent = `h = ${stepText(o.h, o.hStep)} · valores ${d.mode === 'trunc' ? 'truncados' : 'redondeados'} a ${decimalsOf(d)} decimales`;
       clear(refs.tbody);
+      refs.focus = {};
       if (ro.rows.length === 0) {
         refs.tbody.appendChild(h('tr', null, h('td', { colspan: '3', class: 'wrap' }, 'Elija al menos un método para ver su paso.')));
       }
@@ -928,18 +1463,32 @@
             h('span', { class: 'step-diagram__method' },
               methodChip(r.id),
               o.construction ? h('span', { class: 'step-diagram__how' }, r.construction) : null)),
-          h('td', { class: 'num' }, r.y1Text),
+          h('td', { class: 'num' }, focusCell(r.id, r.y1Text, r.zoomLabel)),
           h('td', { class: 'num' }, r.errorText)));
       });
       refs.tbody.appendChild(h('tr', { 'data-exact': '' },
         h('th', { scope: 'row' }, chip('exact', ro.exactLabel)),
-        h('td', { class: 'num' }, ro.exactText),
+        h('td', { class: 'num' }, focusCell(EXACT_ID, ro.exactText, ro.exactZoomLabel)),
         h('td', { class: 'num' })));
     }
 
     function paintChart() {
       if (!chart) return;
-      chart.update({ data: { datasets: buildDatasets(current, current.options) }, options: chartOptions(current, current.options, display()) });
+      chart.update({ data: { datasets: buildDatasets(current, current.options) }, options: chartOptions(current, current.options, display(), plotWidth(), zoomState()) });
+      // Hammer.js sets the canvas' own touch-action when it starts; this is the only place that can take it
+      // back, and it is cheap enough to re-assert on every repaint.
+      if (zoomReady && refs.canvas.style.touchAction !== CANVAS_TOUCH_ACTION) refs.canvas.style.touchAction = CANVAS_TOUCH_ACTION;
+    }
+
+    /** Which view is on screen: the preset button and every row control report their own pressed state. */
+    function paintZoom() {
+      if (refs.zoomIn) {
+        refs.zoomIn.setAttribute('aria-pressed', zoomView === PRESET_VIEW ? 'true' : 'false');
+        refs.zoomIn.disabled = !zoomReady || !current || !zoomWindow(current, current.options.visible);
+      }
+      Object.keys(refs.focus).forEach((id) => {
+        refs.focus[id].setAttribute('aria-pressed', zoomView === id ? 'true' : 'false');
+      });
     }
 
     function paint() {
@@ -947,6 +1496,7 @@
       current = model(state, cache);
       paintCaption();
       paintControls();
+      paintZoom();
       paintReadout();
       paintChart();
     }
@@ -980,9 +1530,112 @@
 
     /* ---- Events ---------------------------------------------------------------------------------------- */
 
+    /** Says the new state and then lets the readout be announced again, even if its text did not change. */
+    function announceZoom(said) {
+      if (!refs.live || !current) return;
+      refs.live.textContent = `${said} ${readout(current, current.options.visible, display()).sentence}`;
+      lastSummary = '';
+    }
+
+    /**
+     * The declared view changed: the picture follows it and so do the pressed states, without rebuilding the
+     * readout - the row control that was just activated has to keep the keyboard focus it has.
+     */
+    function applyView(said) {
+      flush();
+      paintZoom();
+      paintChart();
+      announceZoom(said);
+    }
+
+    /** The close-up of one value, when the model has one to give (the guard of every route to it). */
+    function declaredFor(id) {
+      return current ? zoomWindowFor(current, current.options.visible, id) : null;
+    }
+
+    function onZoomIn() {
+      if (!zoomReady || !current || !zoomWindow(current, current.options.visible)) return;
+      zoomView = PRESET_VIEW;
+      applyView(ZOOM_SAID_IN);
+    }
+
+    function onZoomOut() {
+      if (!zoomReady) return;
+      zoomView = null;
+      applyView(ZOOM_SAID_OUT);
+    }
+
+    /** One value framed on its own: from its label in the picture, or from its row in the readout table. */
+    function onFocus(id) {
+      if (!zoomReady || !current || !declaredFor(id)) return;
+      zoomView = id;
+      applyView(zoomSaidAt(focusName(id, current.reference)));
+    }
+
+    /** A wheel, drag or pinch gesture moved the view: what was declared is no longer what is on screen. */
+    function onFreeZoom() {
+      if (destroyed || !zoomView) return;
+      zoomView = null;
+      paintZoom();
+    }
+
+    /** A new step (or a new problem) gives the picture back its own frame. */
+    function resetZoom() {
+      if (!zoomView) return;
+      zoomView = null;
+      paintZoom();
+    }
+
+    /* ---- The value labels of the picture as controls ---------------------------------------------------- */
+
+    /** Where a pointer event landed in the chart's own pixel space, which is the space the labels are drawn in. */
+    function canvasPoint(event) {
+      const live = chart && chart.chart;
+      const box = live && refs.canvas.getBoundingClientRect();
+      if (!box || !box.width || !box.height) return null;
+      return {
+        x: ((event.clientX - box.left) * live.width) / box.width,
+        y: ((event.clientY - box.top) * live.height) / box.height,
+      };
+    }
+
+    /** The id of the value label under a pointer event, or null anywhere else on the canvas. */
+    function labelUnder(event) {
+      if (destroyed || !zoomReady || !chart || !chart.chart) return null;
+      const p = canvasPoint(event);
+      return p ? labelAt(chart.chart, p.x, p.y) : null;
+    }
+
+    /** The pointer cursor is the whole affordance of a painted label: without it nobody tries to click one. */
+    function onCanvasMove(event) {
+      const want = labelUnder(event) ? 'pointer' : '';
+      if (refs.canvas.style.cursor !== want) refs.canvas.style.cursor = want;
+    }
+
+    function onCanvasLeave() {
+      if (refs.canvas.style.cursor) refs.canvas.style.cursor = '';
+    }
+
+    function onCanvasDown(event) {
+      pressedAt = { x: event.clientX, y: event.clientY };
+    }
+
+    /**
+     * A click on a label frames its value. A drag-to-region zoom ends in a click too, so a pointer that
+     * travelled is left to chartjs-plugin-zoom, and a click anywhere else on the canvas changes nothing.
+     */
+    function onCanvasClick(event) {
+      const from = pressedAt;
+      pressedAt = null;
+      if (from && Math.hypot(event.clientX - from.x, event.clientY - from.y) > CLICK_SLOP) return;
+      const id = labelUnder(event);
+      if (id) onFocus(id);
+    }
+
     function onSlider(settled) {
       const v = snap(Number(refs.slider.value));
       if (Number.isFinite(v)) state.h = v;
+      resetZoom();
       if (settled) {
         paintNow();
         flushSummary();
@@ -1004,6 +1657,8 @@
       if (checked) set.add(id);
       else set.delete(id);
       state.visible = IDS.filter((x) => set.has(x));
+      // A method that is no longer drawn cannot go on being the one the picture is looking at closely.
+      if (zoomView && zoomView !== PRESET_VIEW && zoomView !== EXACT_ID && !state.visible.includes(zoomView)) zoomView = null;
       paintNow();
       flushSummary();
     }
@@ -1028,7 +1683,37 @@
       refs.plot.hidden = true;
       refs.notice.hidden = false;
       refs.showHost.hidden = true; // the switches only change the picture
+      refs.zoomHost.hidden = true; // and so does the zoom
       if (current) paintCaption();
+    }
+
+    /** True once chartjs-plugin-zoom is registered on Chart.js (deps.js does the registering). */
+    function zoomPluginRegistered() {
+      try {
+        return Boolean(win.Chart && win.Chart.registry && win.Chart.registry.getPlugin(ZOOM_PLUGIN_ID));
+      } catch (err) {
+        return false; // the registry throws when the id is unknown
+      }
+    }
+
+    /**
+     * The zoom controls appear only when the plugin really arrived; when it did not, the figure stays exactly
+     * as it was and the group is never shown, so there is no control that does nothing.
+     */
+    function startZoom() {
+      if (destroyed || zoomReady || !chart) return;
+      const deps = EDO.deps;
+      const status = deps && deps.status ? deps.status.zoom : 'failed';
+      if (status === 'pending' && deps.zoom && typeof deps.zoom.then === 'function') {
+        deps.zoom.then(startZoom);
+        return;
+      }
+      if (status !== 'loaded' || !zoomPluginRegistered()) return;
+      zoomReady = true;
+      refs.zoomHost.hidden = false;
+      // The row controls of the readout appear with the rest of the zoom, and only then: until this moment
+      // there is no view for them to declare, and a control that does nothing is worse than none.
+      paintNow();
     }
 
     /** Creates the chart as soon as Chart.js is known to be there; without it the table is the figure's data. */
@@ -1058,8 +1743,8 @@
         handle = EDO.charts.create(refs.canvas, {
           type: 'line',
           data: { datasets: buildDatasets(current, current.options) },
-          options: chartOptions(current, current.options, display()),
-        }, { title: 'Diagrama de un paso', tableAlt: false });
+          options: chartOptions(current, current.options, display(), plotWidth(), zoomState()),
+        }, { title: 'Diagrama de un paso', tableAlt: false, actions: false });
       } catch (err) {
         handle = null;
       }
@@ -1072,6 +1757,25 @@
       }
       chart = handle;
       refs.canvas.setAttribute('aria-label', CANVAS_LABEL);
+      // Only now that there is a picture: without one there is no label to hover and nothing to click.
+      const canvasEvents = {
+        mousemove: onCanvasMove, mouseleave: onCanvasLeave, mousedown: onCanvasDown, click: onCanvasClick,
+      };
+      Object.keys(canvasEvents).forEach((name) => refs.canvas.addEventListener(name, canvasEvents[name]));
+      unsubscribe.push(() => Object.keys(canvasEvents).forEach((name) => refs.canvas.removeEventListener(name, canvasEvents[name])));
+      startZoom();
+      remeasure();
+    }
+
+    /**
+     * The margin of the value labels is reserved from their measured width, and a web font that is still on
+     * its way measures as the fallback one: repaint once the document's fonts are settled, so the margin is
+     * the one the labels really need (the slack of the reservation covers the wait).
+     */
+    function remeasure() {
+      const fonts = win.document && win.document.fonts;
+      if (!fonts || !fonts.ready || typeof fonts.ready.then !== 'function') return;
+      fonts.ready.then(() => { if (!destroyed && chart) paintChart(); }, () => {});
     }
 
     /* ---- Public handle -------------------------------------------------------------------------------------- */
@@ -1096,6 +1800,11 @@
       show.hidden = chartLost;
       refs.showHost.replaceWith(show);
       refs.showHost = show;
+      zoomView = null; // a new problem or a new step is a new picture: it starts at its own frame
+      const zoomGroup = buildZoom();
+      zoomGroup.hidden = chartLost || !zoomReady;
+      refs.zoomHost.replaceWith(zoomGroup);
+      refs.zoomHost = zoomGroup;
       captionKey = '';
       paintNow();
     }
@@ -1137,10 +1846,12 @@
 
     refs.controlsHost = buildControls();
     refs.showHost = buildShow();
+    refs.zoomHost = buildZoom();
+    refs.zoomHost.hidden = true; // until chartjs-plugin-zoom is known to be registered
     refs.live = h('p', { class: 'sr-only', 'aria-live': 'polite', 'aria-atomic': 'true' });
     refs.root = h('div', { class: 'step-diagram', 'data-mode': state.methods === 'all' ? 'all' : 'single', 'data-method': state.methods === 'all' ? null : state.methods },
       h('div', { class: 'step-diagram__layout' },
-        h('div', { class: 'step-diagram__main' }, buildFigure(), refs.showHost),
+        h('div', { class: 'step-diagram__main' }, buildFigure(), refs.showHost, refs.zoomHost),
         h('div', { class: 'step-diagram__panel' }, refs.controlsHost, buildReadout(), refs.live)));
     container.appendChild(refs.root);
 
@@ -1176,7 +1887,17 @@
     stepText,
     buildDatasets,
     chartOptions,
+    zoomWindow,
+    zoomWindowFor,
+    zoomConfig,
+    focusLabel,
+    labelRects,
+    labelAt,
+    EXACT_ID,
     spreadLabels,
+    labelTexts,
+    labelColumn,
+    textWidth,
     plugin: stepPlugin,
     mount,
   };

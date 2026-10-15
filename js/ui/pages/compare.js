@@ -231,10 +231,10 @@
 
     /* ---- Painting ------------------------------------------------------------------------------------------------ */
 
-    function lineChart(key, title, datasets, options) {
+    function lineChart(key, title, datasets, options, chartOpts) {
       const config = { type: 'line', data: { datasets }, options };
       if (charts[key]) charts[key].update({ data: { datasets }, options });
-      else charts[key] = EDO.charts.create(refs[key], config, { title, signal });
+      else charts[key] = EDO.charts.create(refs[key], config, Object.assign({ title, signal }, chartOpts));
     }
 
     function makeZoomPlugin(xType, yType, zoomLimits) {
@@ -248,6 +248,7 @@
           wheel: { enabled: true, modifierKey: 'ctrl', speed: 0.08 },
           drag: {
             enabled: true,
+            modifierKey: 'shift',
             backgroundColor: 'rgba(55, 70, 92, 0.12)',
             borderColor: '#6f7c91',
             borderWidth: 1,
@@ -259,7 +260,6 @@
         pan: {
           enabled: true,
           mode: 'xy',
-          modifierKey: 'ctrl',
           threshold: 8,
         },
         limits,
@@ -324,7 +324,8 @@
       lineChart('solution', 'Soluciones numéricas y solución exacta',
         [EDO.charts.dataset('exact', series.reference.label, series.reference.points, { pointRadius: 0 })]
           .concat(series.methods.map((m) => EDO.charts.dataset(m.id, m.label, m.points))),
-        solAxes);
+        solAxes,
+        { tools: [zoomInBtn, zoomOutBtn], customReset: true });
       lineChart('error', 'Error absoluto de cada método a lo largo del intervalo',
         M.errorSeries(result).map((m) => EDO.charts.dataset(m.id, m.label, m.points)),
         axes(x, 'Error absoluto', 'linear', 'logarithmic'));
@@ -355,7 +356,8 @@
       if (convZoomInBtn) convZoomInBtn.setAttribute('aria-pressed', convZoomed ? 'true' : 'false');
       if (convZoomOutBtn) convZoomOutBtn.setAttribute('aria-pressed', convZoomed ? 'false' : 'true');
 
-      lineChart('convergence', 'Error en el punto final según el paso h (escala log-log)', sets, convAxes);
+      lineChart('convergence', 'Error en el punto final según el paso h (escala log-log)', sets, convAxes,
+        { tools: [convZoomInBtn, convZoomOutBtn], customReset: true });
       refs.errors.replaceChildren(V.convergenceTable(h, kit, study));
       refs.orders.replaceChildren(V.ordersTable(h, kit, study));
 
@@ -495,17 +497,19 @@
           'ninguno de los cuatro sirve sin reducir el paso: los valores crecen aunque la solución decaiga.')));
 
     zoomInBtn = h('button', {
-      type: 'button', class: 'btn', 'data-size': 'sm', id: 'cmp-btn-zoom-in', 'data-zoom': 'in',
+      type: 'button', class: 'chart-tool-btn', id: 'cmp-btn-zoom-in', 'data-zoom': 'in',
       'aria-pressed': solutionZoomed ? 'true' : 'false',
+      title: 'Ampliar el final (separar curvas)',
       onclick: () => {
         solutionZoomed = true;
         paintSame();
       },
-    }, '🔍 Ampliar el final (separar curvas)');
+    }, '🔍 Separar curvas');
 
     zoomOutBtn = h('button', {
-      type: 'button', class: 'btn', 'data-size': 'sm', id: 'cmp-btn-zoom-out', 'data-zoom': 'out',
+      type: 'button', class: 'chart-tool-btn', id: 'cmp-btn-zoom-out', 'data-zoom': 'out',
       'aria-pressed': solutionZoomed ? 'false' : 'true',
+      title: 'Restablecer zoom (Vista completa)',
       onclick: () => {
         solutionZoomed = false;
         if (charts.solution && charts.solution.chart && typeof charts.solution.chart.resetZoom === 'function') {
@@ -513,26 +517,22 @@
         }
         paintSame();
       },
-    }, '↺ Vista completa');
-
-    const zoomToolbar = h('div', { class: 'cluster', style: { 'margin-bottom': '0.75rem', 'align-items': 'center', 'gap': '0.5rem' } },
-      zoomInBtn, zoomOutBtn,
-      h('span', { class: 'muted', style: { 'font-size': 'var(--step--1)' } },
-        'Ctrl + rueda acerca; arrastre para seleccionar una zona. Botón para separar curvas del final.')
-    );
+    }, '↺ Restablecer');
 
     convZoomInBtn = h('button', {
-      type: 'button', class: 'btn', 'data-size': 'sm', id: 'cmp-btn-conv-zoom-in', 'data-zoom': 'in',
+      type: 'button', class: 'chart-tool-btn', id: 'cmp-btn-conv-zoom-in', 'data-zoom': 'in',
       'aria-pressed': convZoomed ? 'true' : 'false',
+      title: 'Ampliar métodos de orden 2 (separar curvas)',
       onclick: () => {
         convZoomed = true;
         paintStudy();
       },
-    }, '🔍 Ampliar métodos de orden 2 (separar curvas)');
+    }, '🔍 Enfocar orden 2');
 
     convZoomOutBtn = h('button', {
-      type: 'button', class: 'btn', 'data-size': 'sm', id: 'cmp-btn-conv-zoom-out', 'data-zoom': 'out',
+      type: 'button', class: 'chart-tool-btn', id: 'cmp-btn-conv-zoom-out', 'data-zoom': 'out',
       'aria-pressed': convZoomed ? 'false' : 'true',
+      title: 'Restablecer zoom (Vista completa)',
       onclick: () => {
         convZoomed = false;
         if (charts.convergence && charts.convergence.chart && typeof charts.convergence.chart.resetZoom === 'function') {
@@ -540,13 +540,7 @@
         }
         paintStudy();
       },
-    }, '↺ Vista completa');
-
-    const convZoomToolbar = h('div', { class: 'cluster', style: { 'margin-bottom': '0.75rem', 'align-items': 'center', 'gap': '0.5rem' } },
-      convZoomInBtn, convZoomOutBtn,
-      h('span', { class: 'muted', style: { 'font-size': 'var(--step--1)' } },
-        'Ctrl + rueda acerca; arrastre para seleccionar una zona. Botón para enfocar orden 2.')
-    );
+    }, '↺ Restablecer');
 
     page.appendChild(h('div', { class: 'cmp' },
       h('header', { class: 'cmp__head' },
@@ -564,7 +558,6 @@
           ' se ve dónde cae cada método respecto del valor exacto, y de dónde sale la diferencia que la tabla acumula.'),
         refs.diagram),
       section('graficos', 'Soluciones y error',
-        zoomToolbar,
         h('div', { class: 'cmp__charts' },
           figure(canvas('solution'), 'Valores de cada método en cada x y la solución exacta (o la referencia).'),
           figure(canvas('error'), 'Error absoluto en cada x, en escala logarítmica (se omite x0, donde el error es cero).'))),
@@ -583,7 +576,6 @@
         h('p', { class: 'cmp__note' }, 'Eso se mide: el caso se resuelve con el h del enunciado y con h/2, h/4, …, h/32. Si el error se comporta como ',
           kit.im('C\\,h^p'), ', al dividir h por 2 se divide por ', kit.im('2^p'), ', y ', kit.im('p = \\log_2\\big(e(h)/e(h/2)\\big)'),
           '. En escala log-log cada método forma una recta de pendiente p; las líneas de referencia tienen pendiente 1 y 2.'),
-        convZoomToolbar,
         h('div', { class: 'cmp__charts cmp__charts--stack' },
           figure(canvas('convergence'), 'Error en el punto final según h. Euler sigue la pendiente 1; los tres métodos de grado 2, la pendiente 2.'),
           h('div', { class: 'stack' },

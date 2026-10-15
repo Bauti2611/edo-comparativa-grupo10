@@ -2,8 +2,8 @@
  * EDO.theory.kit - building blocks shared by the sections of the Teoría page (sections-a/b/c.js).
  *
  * `makeKit(h, format)` returns small element builders on top of EDO.dom.h (`h`) that only use the classes of
- * components.css: section, prose, formula, callout, extension (the dashed "Ampliación" box), table, links and
- * number helpers. `rational` is a tiny exact-fraction helper (the RK2 family table shows exact fractions, not
+ * components.css: section, prose, formula, callout, fold (the `.disclosure` box for what stays out of the main
+ * reading flow), extension (the dashed "Ampliación" box), table, links and number helpers. `rational` is a tiny exact-fraction helper (the RK2 family table shows exact fractions, not
  * decimals). The section order and the method names live here so the page and the tests share one source.
  *
  * Nothing here touches the DOM directly: every element is built through the injected `h`, so the same code runs
@@ -23,8 +23,12 @@
 }(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  /** Section slugs, in reading order (the ids are `teoria-<slug>`). */
-  const SECTION_ORDER = Object.freeze(['pvi', 'taylor', 'heun', 'rk2', 'familia', 'error', 'costo', 'receta', 'resumen', 'glosario']);
+  /**
+   * Section slugs, in reading order (the ids are `teoria-<slug>`). The Receta comes right after the PVI because
+   * it is what the group needs if it is asked to solve an exercise live; the comparative sections (error, cost
+   * and the summary with its decision guide) live on the Comparativa page, which owns the assigned topic.
+   */
+  const SECTION_ORDER = Object.freeze(['pvi', 'receta', 'taylor', 'heun', 'rk2', 'familia', 'glosario']);
 
   /** Names as the page writes them (the apunte's wording). */
   const METHOD_NAMES = Object.freeze({
@@ -122,6 +126,16 @@
         ...children);
     }
 
+    /**
+     * A folded block (the `.disclosure` component of components.css): the content stays available but out of the
+     * main reading flow. The talk no longer walks through the long derivations, so they live here.
+     * @param {string} title What the summary line says.
+     * @param {...(Node|null)} children
+     */
+    const fold = (title, ...children) => h('details', { class: 'disclosure theory-fold' },
+      h('summary', null, title),
+      h('div', { class: 'disclosure__body stack' }, ...children));
+
     /** The dashed box of everything that goes beyond the apunte, always tagged with the "Ampliación" badge. */
     const extension = (title, ...children) => callout({ kind: 'extension', label: [ampliacion(), ' ', title] }, ...children);
     const extensionWide = (title, ...children) => callout({ kind: 'extension', wide: true, label: [ampliacion(), ' ', title] }, ...children);
@@ -180,7 +194,7 @@
     const sci = (v, digits) => format.sci(v, { digits: digits === undefined ? 4 : digits, trim: false });
 
     return {
-      badge, ampliacion, fromApunte, prose, im, formula, caption, callout, extension, extensionWide, link, goto, methodChip, section, table, fixed, plain, sci, Q, familyMember,
+      badge, ampliacion, fromApunte, prose, im, formula, caption, callout, fold, extension, extensionWide, link, goto, methodChip, section, table, fixed, plain, sci, Q, familyMember,
     };
   }
 
