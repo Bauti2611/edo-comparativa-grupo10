@@ -236,6 +236,116 @@ describe('the fixed frame', () => {
   });
 });
 
+/* ---- Zoom: the window of the preset and the options of chartjs-plugin-zoom ------------------------------- */
+
+describe('zoomWindow: the window of "Ampliar el final del paso"', () => {
+  it('contains x_{n+1}, every shown end value and the exact value, with a margin and nothing more', () => {
+    const m = sd.model({ h: 0.4 });
+    const w = sd.zoomWindow(m, m.options.visible);
+    assert.ok(w.xMin < m.x1 && m.x1 < w.xMax, 'x_{n+1} is inside');
+    const ys = m.options.visible.map((id) => m.methods[id].y1).concat([m.exact]);
+    ys.forEach((y) => assert.ok(y > w.yMin && y < w.yMax, `${y} outside [${w.yMin}, ${w.yMax}]`));
+    // The margin is small: the window is barely taller than what it has to contain.
+    const span = Math.max(...ys) - Math.min(...ys);
+    near(w.yMax - w.yMin, span * 1.36, 1e-12, 'height of the window');
+  });
+
+  it('is computed from the model, not from the picture: the numbers of h = 0.4', () => {
+    const m = sd.model({ h: 0.4 });
+    // Taylor 2.28, RK2 2.344, Euler Mejorado 2.408 and the exact value 2.6117 at x = 1.4.
+    near(m.methods.taylor.y1, 2.28, 1e-12);
+    near(m.methods.rk2.y1, 2.344, 1e-12);
+    near(m.methods.heun.y1, 2.408, 1e-12);
+    const w = sd.zoomWindow(m, ['taylor', 'heun', 'rk2']);
+    const pad = (m.exact - 2.28) * 0.18;
+    near(w.yMin, 2.28 - pad, 1e-12);
+    near(w.yMax, m.exact + pad, 1e-12);
+    near(w.xMin, 1.4 - 0.45 * 0.4, 1e-12);
+    near(w.xMax, 1.4 + 0.22 * 0.4, 1e-12);
+  });
+
+  it('separates the three second-order methods: a twentieth of the frame becomes a third of the window', () => {
+    const m = sd.model({ h: 0.4 });
+    const w = sd.zoomWindow(m, m.options.visible);
+    const apart = m.methods.heun.y1 - m.methods.taylor.y1; // 0.128
+    const frameShare = apart / (m.frame.yMax - m.frame.yMin);
+    const zoomShare = apart / (w.yMax - w.yMin);
+    assert.ok(frameShare < 0.05, `${frameShare} of the frame`);
+    assert.ok(zoomShare > 0.25, `${zoomShare} of the window`);
+  });
+
+  it('is inside the model frame, on every step and on several problems', () => {
+    ['cmp_2xy_13', 'cmp_3x2y', 'cmp_quarter', 'p5_1d', 'ex_linear'].forEach((id) => {
+      [0.05, 0.2, 0.4, 0.5].forEach((h) => {
+        const m = sd.model({ problem: id, h });
+        const w = sd.zoomWindow(m, ALL);
+        assert.ok(w, `${id} h=${h}`);
+        assert.ok(w.xMax - w.xMin < m.frame.xMax - m.frame.xMin, `${id} h=${h}: x span`);
+        assert.ok(w.yMax - w.yMin <= m.frame.yMax - m.frame.yMin, `${id} h=${h}: y span`);
+        assert.ok([w.xMin, w.xMax, w.yMin, w.yMax].every(Number.isFinite), `${id} h=${h}: finite`);
+        assert.ok(w.xMax > w.xMin && w.yMax > w.yMin, `${id} h=${h}: non-degenerate`);
+      });
+    });
+  });
+
+  it('follows the methods that are shown, and reaches further when a farther one is added', () => {
+    const m = sd.model({ h: 0.4 });
+    const three = sd.zoomWindow(m, ['taylor', 'heun', 'rk2']);
+    const withEuler = sd.zoomWindow(m, ALL);
+    assert.ok(withEuler.yMin < three.yMin, 'Euler lands lower, so the window reaches lower');
+    assert.equal(withEuler.xMin, three.xMin, 'the abscissas only depend on x_{n+1} and h');
+  });
+
+  it('stays non-degenerate when every end value coincides, and is null when there is nothing to frame', () => {
+    const flat = sd.model({ problem: P.make({ id: 'flat', fStr: '0*y', x0: 0, y0: 2, xf: 1, h: 1 }), h: 0.4 });
+    const w = sd.zoomWindow(flat, ALL);
+    assert.ok(w.yMax > w.yMin, `${w.yMin}..${w.yMax}`);
+    assert.equal(sd.zoomWindow(null), null);
+    assert.equal(sd.zoomWindow({ x1: NaN, h: 0.4, methods: {} }), null);
+  });
+});
+
+describe('zoomConfig: chartjs-plugin-zoom cannot hijack the page', () => {
+  const frame = { xMin: 0, xMax: 2, yMin: 1, yMax: 5 };
+
+  it('zooms with the wheel only while Ctrl is held, so a plain wheel keeps scrolling the page', () => {
+    const z = sd.zoomConfig({ frame });
+    assert.equal(z.zoom.wheel.enabled, true);
+    assert.equal(z.zoom.wheel.modifierKey, 'ctrl');
+  });
+
+  it('zooms to a dragged region and pinches with two fingers', () => {
+    const z = sd.zoomConfig({ frame });
+    assert.equal(z.zoom.drag.enabled, true);
+    assert.equal(z.zoom.drag.modifierKey, 'shift', 'Shift + drag selects the region');
+    assert.equal(z.zoom.pinch.enabled, true);
+    assert.equal(z.zoom.mode, 'xy');
+  });
+
+  it('leaves panning off unless the caller allows it, and pans with plain drag', () => {
+    assert.equal(sd.zoomConfig({ frame }).pan.enabled, false);
+    const z = sd.zoomConfig({ frame, pan: true });
+    assert.equal(z.pan.enabled, true);
+    assert.equal(z.pan.modifierKey, undefined);
+  });
+
+  it('cannot be zoomed out past the model frame, nor in past a hundredth of it', () => {
+    const z = sd.zoomConfig({ frame });
+    assert.deepEqual(z.limits.x, { min: 0, max: 2, minRange: 0.02 });
+    assert.deepEqual(z.limits.y, { min: 1, max: 5, minRange: 0.04 });
+    assert.deepEqual(sd.zoomConfig({}).limits, {});
+  });
+
+  it('reports a gesture through onChange, once per zoom and once per pan', () => {
+    const seen = [];
+    const z = sd.zoomConfig({ frame, pan: true, onChange: () => seen.push('moved') });
+    z.zoom.onZoomComplete();
+    z.pan.onPanComplete();
+    assert.deepEqual(seen, ['moved', 'moved']);
+    assert.equal(sd.zoomConfig({ frame }).zoom.onZoomComplete, undefined);
+  });
+});
+
 describe('options and the reference curve', () => {
   it('clamps h into the slider range and applies the defaults', () => {
     const o = sd.model({ h: 9 }).options;
@@ -444,10 +554,14 @@ function recordingCtx() {
   return ctx;
 }
 
-/** A chart-like object with linear scales mapped onto a plot area, enough for the plugin's hooks. */
+/**
+ * A chart-like object with linear scales mapped onto a plot area, enough for the plugin's hooks. The plot area
+ * ends well before the right edge of the canvas: that margin is the one `layout.padding.right` reserves for the
+ * column of value labels (`charted` below builds it from the options themselves).
+ */
 function fakeChart(frame, geometry) {
   const g = Object.assign({
-    width: 700, height: 400, left: 50, top: 30, right: 650, bottom: 330,
+    width: 700, height: 400, left: 50, top: 30, right: 508, bottom: 330,
   }, geometry);
   const area = {
     left: g.left, top: g.top, right: g.right, bottom: g.bottom, width: g.right - g.left, height: g.bottom - g.top,
@@ -486,6 +600,9 @@ describe('the Chart.js plugin', () => {
     options = sd.chartOptions(m, m.options, { decimals: 4, mode: 'round' });
     o = options.plugins.edoStep;
   });
+
+  /** The canvas those options describe: the plot area ends exactly where the reserved right padding begins. */
+  const charted = (width) => fakeChart(m.frame, { width: width || 700, right: (width || 700) - Math.round(options.layout.padding.right) });
 
   it('is registered under the id "edoStep" and does nothing when it is not active', () => {
     assert.equal(sd.plugin.id, 'edoStep');
@@ -528,7 +645,7 @@ describe('the Chart.js plugin', () => {
   });
 
   it('draws one bracket per shown method from its y_{n+1} to the exact value, side by side without overlapping', () => {
-    const chart = fakeChart(m.frame);
+    const chart = charted();
     sd.plugin.afterDatasetsDraw(chart, {}, o);
     const px1 = chart.scales.x.getPixelForValue(o.x1);
     const stems = segments(chart.ctx.ops).filter((s) => s.x1 === s.x2 && s.x1 > px1 + 1);
@@ -541,13 +658,14 @@ describe('the Chart.js plugin', () => {
       assert.equal(s.strokeStyle, o.brackets[i].color);
     });
     assert.ok(stems[0].x1 >= px1 + o.clear - 1e-9, 'the first bracket clears the markers at x_{n+1}');
+    stems.forEach((s) => assert.ok(s.x1 <= chart.chartArea.right, 'the brackets stay anchored inside the drawing'));
   });
 
-  it('writes the exact value and every y_{n+1} in one column, each label at least a line apart', () => {
-    const chart = fakeChart(m.frame);
+  it('writes the method and its value in one column, each label at least a line apart', () => {
+    const chart = charted();
     sd.plugin.afterDatasetsDraw(chart, {}, o);
-    const labels = chart.ctx.ops.filter((op) => op.op === 'fillText' && (op.text === 'exacto 1.9937' || /^\d\.\d+$/.test(op.text)));
-    assert.deepEqual(labels.map((l) => l.text).sort(), ['1.87', '1.897', '1.924', 'exacto 1.9937']);
+    const labels = chart.ctx.ops.filter((op) => op.op === 'fillText' && /\d\.\d/.test(op.text));
+    assert.deepEqual(labels.map((l) => l.text).sort(), ['Euler Mejorado 1.924', 'RK2 (punto medio) 1.897', 'Taylor 1.87', 'exacto 1.9937']);
     const ys = labels.map((l) => l.y).sort((a, b) => a - b);
     ys.forEach((y, i) => { if (i) assert.ok(y - ys[i - 1] >= 13 * 1.3 - 1e-9, `labels ${i - 1} and ${i} overlap`); });
     const xs = new Set(labels.map((l) => l.x));
@@ -555,11 +673,39 @@ describe('the Chart.js plugin', () => {
     assert.ok(labels.every((l) => l.y >= chart.chartArea.top && l.y <= chart.chartArea.bottom));
   });
 
+  it('draws the whole column in the reserved margin, never over the drawing, and never cut by the edge', () => {
+    const chart = charted();
+    sd.plugin.afterDatasetsDraw(chart, {}, o);
+    const area = chart.chartArea;
+    const labels = chart.ctx.ops.filter((op) => op.op === 'fillText' && /\d\.\d/.test(op.text));
+    assert.equal(labels.length, 4);
+    labels.forEach((l) => {
+      assert.ok(l.x > area.right, `"${l.text}" starts inside the plot area`);
+      assert.ok(l.x + l.text.length * 7 <= chart.width, `"${l.text}" runs past the canvas`);
+    });
+    // The markers of the column sit in the margin too, and no plate is painted under a label any more.
+    assert.equal(chart.ctx.ops.filter((op) => op.op === 'fill').length, 4, 'a marker per label');
+    chart.ctx.ops.filter((op) => op.op === 'arc' || op.op === 'rect').forEach((op) => {
+      assert.ok(op.args[0] > area.right, 'a marker of the column inside the plot area');
+    });
+    assert.equal(chart.ctx.ops.filter((op) => op.op === 'fillRect').length, 0, 'no opaque plate');
+  });
+
+  it('falls back to the bare value, and then to nothing, as the column gets narrower', () => {
+    const texts = (right) => {
+      const chart = fakeChart(m.frame, { width: 700, right });
+      sd.plugin.afterDatasetsDraw(chart, {}, o);
+      return chart.ctx.ops.filter((op) => op.op === 'fillText' && /\d\.\d/.test(op.text)).map((op) => op.text);
+    };
+    assert.deepEqual(texts(620).sort(), ['1.87', '1.897', '1.924']); // only "exacto" is left of the exact label
+    assert.deepEqual(texts(660), []);
+  });
+
   it('keeps labels apart even when the methods land on the same pixel row', () => {
-    const chart = fakeChart(m.frame);
+    const chart = charted();
     const close = Object.assign({}, o, {
       brackets: ALL.map((id, i) => ({
-        y1: 1.9 + i * 1e-5, y2: 2.0, color: `#${id}`, width: 2, shape: SHAPES[id], label: `1.9${i}`,
+        y1: 1.9 + i * 1e-5, y2: 2.0, color: `#${id}`, width: 2, shape: SHAPES[id], texts: [`1.9${i}`],
       })),
     });
     sd.plugin.afterDatasetsDraw(chart, {}, close);
@@ -587,11 +733,90 @@ describe('the Chart.js plugin', () => {
   });
 
   it('labels x_n, x_{n+1} and the step h, and draws a marker with each value label', () => {
-    const chart = fakeChart(m.frame);
+    const chart = charted();
     sd.plugin.afterDatasetsDraw(chart, {}, o);
     const texts = chart.ctx.ops.filter((op) => op.op === 'fillText').map((op) => op.text);
     ['x', 'n', 'h'].forEach((t) => assert.ok(texts.includes(t), t));
     assert.ok(chart.ctx.ops.filter((op) => op.op === 'fill').length >= 4, 'a glyph per label');
+  });
+
+  /* ---- The same marks once the scales are a zoomed window instead of the model frame ------------------- */
+
+  /** The canvas of a zoomed-in view: same geometry, scales over `window` instead of over the frame. */
+  const zoomedChart = (window, width) => fakeChart(window, {
+    width: width || 700, right: (width || 700) - Math.round(options.layout.padding.right),
+  });
+
+  it('keeps the guides, the step and both abscissa labels right when the scales are the zoom window', () => {
+    const w = sd.zoomWindow(m, m.options.visible);
+    const chart = zoomedChart({
+      xMin: m.x0 - 0.1, xMax: m.x1 + 0.1, yMin: w.yMin, yMax: w.yMax,
+    });
+    sd.plugin.beforeDatasetsDraw(chart, {}, o);
+    const area = chart.chartArea;
+    const guides = segments(chart.ctx.ops).filter((s) => s.x1 === s.x2 && s.y1 === area.top && s.y2 === area.bottom);
+    assert.equal(guides.length, 2);
+    near(guides[0].x1, chart.scales.x.getPixelForValue(o.x0), 1e-9, 'the guide follows x_n through the new scale');
+    near(guides[1].x1, chart.scales.x.getPixelForValue(o.x1), 1e-9, 'and through x_{n+1}');
+    chart.ctx.ops.length = 0;
+    sd.plugin.afterDatasetsDraw(chart, {}, o);
+    const texts = chart.ctx.ops.filter((op) => op.op === 'fillText').map((op) => op.text);
+    ['x', 'n', 'h'].forEach((t) => assert.ok(texts.includes(t), t));
+  });
+
+  it('writes the value labels of the zoom window in the reserved margin, one per value in view', () => {
+    const w = sd.zoomWindow(m, m.options.visible);
+    const chart = zoomedChart(w);
+    sd.plugin.afterDatasetsDraw(chart, {}, o);
+    const area = chart.chartArea;
+    const labels = chart.ctx.ops.filter((op) => op.op === 'fillText' && /\d\.\d/.test(op.text));
+    assert.equal(labels.length, 4, 'the three methods and the exact value are all in the window');
+    labels.forEach((l) => {
+      assert.ok(l.x > area.right, `"${l.text}" left the reserved margin`);
+      assert.ok(l.x + l.text.length * 7 <= chart.width, `"${l.text}" runs past the canvas`);
+      assert.ok(l.y >= area.top && l.y <= area.bottom, `"${l.text}" left the plotting area`);
+    });
+  });
+
+  it('spreads the end values the zoom window separates: they no longer share a pixel row', () => {
+    const w = sd.zoomWindow(m, m.options.visible);
+    const rows = (frame) => {
+      const chart = zoomedChart(frame);
+      sd.plugin.afterDatasetsDraw(chart, {}, o);
+      return segments(chart.ctx.ops)
+        .filter((s) => s.x1 === s.x2 && s.x1 > chart.scales.x.getPixelForValue(o.x1) + 1)
+        .map((s) => s.y1);
+    };
+    const wide = rows(m.frame);
+    const close = rows(w);
+    assert.equal(wide.length, close.length);
+    const spread = (ys) => Math.max(...ys) - Math.min(...ys);
+    assert.ok(spread(close) > spread(wide) * 3, `${spread(wide)} px over the frame, ${spread(close)} px zoomed in`);
+  });
+
+  it('leaves out the marks and the labels of a value the view no longer contains', () => {
+    // A window above every end value: nothing of the step is in it any more.
+    const chart = zoomedChart({
+      xMin: m.frame.xMin, xMax: m.frame.xMax, yMin: m.exact + 1, yMax: m.exact + 2,
+    });
+    sd.plugin.afterDatasetsDraw(chart, {}, o);
+    const area = chart.chartArea;
+    const px1 = chart.scales.x.getPixelForValue(o.x1);
+    assert.equal(segments(chart.ctx.ops).filter((s) => s.x1 === s.x2 && s.x1 > px1 + 1).length, 0, 'no error mark');
+    assert.deepEqual(chart.ctx.ops.filter((op) => op.op === 'fillText' && /\d\.\d/.test(op.text)), [], 'no value label');
+    chart.ctx.ops.filter((op) => op.op === 'fillText').forEach((op) => {
+      assert.ok(op.y >= area.top - 40 && op.y <= area.bottom + 40, `"${op.text}" drawn far outside the area`);
+    });
+  });
+
+  it('drops the abscissa labels and the h line when the step itself has been panned out of view', () => {
+    const chart = zoomedChart({
+      xMin: m.x1 + 0.2, xMax: m.x1 + 0.6, yMin: m.frame.yMin, yMax: m.frame.yMax,
+    });
+    sd.plugin.afterDatasetsDraw(chart, {}, o);
+    const texts = chart.ctx.ops.filter((op) => op.op === 'fillText').map((op) => op.text);
+    assert.ok(!texts.includes('h'), 'no dimension line for a step that is off screen');
+    assert.ok(!texts.includes('n'), 'no x_n / x_{n+1} label either');
   });
 });
 
@@ -619,6 +844,26 @@ describe('datasets and chart options (with a stub of EDO.charts)', () => {
     const sets = sd.buildDatasets(m, m.options);
     assert.equal(sets.length, 1 + 4 + 2);
     ['Euler', 'Taylor', 'Euler Mejorado', 'RK2'].forEach((name) => assert.equal(sets.filter((s) => s.label.startsWith(`${name}:`)).length, 1, name));
+  });
+
+  it('keeps the construction secondary: thinner, lighter and under every trajectory', () => {
+    sd._env.charts = { methodStyle: (id) => Object.assign(stubCharts.methodStyle(id), { color: id === 'exact' ? '#111111' : '#0072b2' }) };
+    const m = sd.model({ h: 0.3, visible: ['heun', 'rk2'] });
+    const sets = sd.buildDatasets(m, m.options);
+    const paths = ['Euler Mejorado: pendiente promedio', 'RK2: paso completo con la pendiente del punto medio'].map((l) => sets.find((s) => s.label === l));
+    const aux = ['Euler Mejorado: predictor (paso de Euler)', 'Euler Mejorado: pendiente en el predictor',
+      'RK2: medio paso de Euler hasta el punto medio', 'RK2: pendiente en el punto medio'].map((l) => sets.find((s) => s.label === l));
+    aux.forEach((set, i) => {
+      assert.ok(set, `missing construction dataset ${i}`);
+      paths.forEach((path) => {
+        assert.ok(set.borderWidth < path.borderWidth * 0.6, `${set.label} is as thick as a trajectory`);
+        assert.ok(set.order > path.order, `${set.label} must be drawn under the trajectories`);
+      });
+      assert.ok(set.order > sets[0].order, `${set.label} must be drawn under the exact curve`);
+      assert.match(set.borderColor, /^#0072b2[0-9a-f]{2}$/, `${set.label} must be lighter than its method`);
+    });
+    const hollowMarker = aux[0];
+    assert.ok(hollowMarker.pointBorderWidth < 2, 'the auxiliary markers are drawn with a thin stroke');
   });
 
   it('every result ends exactly at (x_{n+1}, y_{n+1}) with a marker on the last point only', () => {
@@ -678,10 +923,46 @@ describe('datasets and chart options (with a stub of EDO.charts)', () => {
     near(p.field.f(1, 1), 2, 1e-15);
     assert.deepEqual(p.brackets.map((b) => b.color), ['#taylor', '#heun', '#rk2']);
     // truncation works on the 12-digit decimal value, so binary noise (1.8969999999999998) still reads 1.897
-    assert.deepEqual(p.brackets.map((b) => b.label), ['1.87', '1.924', '1.897']);
+    assert.deepEqual(p.brackets.map((b) => b.texts[b.texts.length - 1]), ['1.87', '1.924', '1.897']);
     assert.deepEqual(p.brackets.map((b) => b.shape), ['circle', 'triangle', 'rectRot']);
     p.brackets.forEach((b) => near(b.y2, m.exact, 1e-15));
     assert.ok(p.clear > 0);
+  });
+
+  it('every value label names its method before the number, with the engine\'s own names', () => {
+    const m = sd.model({ h: 0.3, visible: ALL });
+    const p = sd.chartOptions(m, m.options, { decimals: 4, mode: 'round' }).plugins.edoStep;
+    assert.deepEqual(p.brackets.map((b) => b.texts[0]), ['Euler 1.6', 'Taylor 1.87', 'Euler Mejorado 1.924', 'RK2 (punto medio) 1.897']);
+    ALL.forEach((id) => assert.equal(sd.labelTexts(id, '2.5')[0], `${M.byId(id).label} 2.5`, id));
+    // the wordings end in the bare value, so a narrow picture can still show the number
+    p.brackets.forEach((b) => assert.ok(/^\d/.test(b.texts[b.texts.length - 1]), b.texts.join('|')));
+    // the only wording that drops the qualifier between brackets is the one of RK2
+    assert.deepEqual(sd.labelTexts('rk2', '1.897'), ['RK2 (punto medio) 1.897', 'RK2 1.897', '1.897']);
+    assert.deepEqual(sd.labelTexts('heun', '1.924'), ['Euler Mejorado 1.924', '1.924']);
+  });
+
+  it('reserves a right padding at least as wide as the column it measures (markers plus the widest label)', () => {
+    const m = sd.model({ h: 0.3, visible: ALL });
+    const opt = sd.chartOptions(m, m.options, { decimals: 4, mode: 'round' });
+    const p = opt.plugins.edoStep;
+    const texts = p.brackets.map((b) => b.texts[0]).concat([`${p.exactLabel} ${p.exactText}`]);
+    const widest = Math.max(...texts.map((t) => sd.textWidth(t, 13)));
+    const column = sd.labelColumn(13, widest);
+    assert.ok(column.marker > 0 && column.text > column.marker, 'the text goes after the marker');
+    assert.ok(opt.layout.padding.right >= column.width, `${opt.layout.padding.right} < ${column.width}`);
+    assert.ok(opt.layout.padding.right >= 2 * column.radius + widest, 'the markers and the text must fit');
+    assert.ok(opt.layout.padding.right > 6, 'the column used to be drawn inside the plotting area');
+  });
+
+  it('never gives the column more than a third of a narrow canvas: the labels get shorter instead', () => {
+    const m = sd.model({ h: 0.3, visible: ALL });
+    const full = sd.chartOptions(m, m.options, { decimals: 4, mode: 'round' }).layout.padding.right;
+    [390, 300].forEach((width) => {
+      const padding = sd.chartOptions(m, m.options, { decimals: 4, mode: 'round' }, width).layout.padding.right;
+      assert.ok(padding <= Math.ceil(width * 0.36), `${padding} px of ${width}`);
+      assert.ok(padding < full, 'a narrow canvas reserves less than a wide one');
+      assert.ok(padding >= sd.labelColumn(13, sd.textWidth('1.924', 13)).width, 'the bare value still fits');
+    });
   });
 
   it('brackets follow the shown methods only, and the field flag follows the state', () => {
@@ -691,9 +972,111 @@ describe('datasets and chart options (with a stub of EDO.charts)', () => {
     assert.equal(p.brackets[0].color, '#heun');
     assert.equal(p.field.enabled, false);
   });
+
+  /* ---- The zoom in the options ------------------------------------------------------------------------- */
+
+  it('adds nothing at all when the zoom plugin is not there: the figure is what it always was', () => {
+    const m = sd.model({ h: 0.4 });
+    const bare = sd.chartOptions(m, m.options, {}, 700);
+    [undefined, {}, { enabled: false }].forEach((zoom) => {
+      const opt = sd.chartOptions(m, m.options, {}, 700, zoom);
+      assert.equal(opt.plugins.zoom, undefined);
+      assert.equal(opt.transitions, undefined);
+      assert.deepEqual(opt.scales, bare.scales);
+    });
+  });
+
+  it('frames the scales on the model frame while no window is declared', () => {
+    const m = sd.model({ h: 0.4 });
+    const opt = sd.chartOptions(m, m.options, {}, 700, { enabled: true, view: null });
+    assert.equal(opt.scales.x.min, m.frame.xMin);
+    assert.equal(opt.scales.x.max, m.frame.xMax);
+    assert.equal(opt.scales.y.min, m.frame.yMin);
+    assert.equal(opt.scales.y.max, m.frame.yMax);
+  });
+
+  it('frames the scales on the declared window, and the reset gives the model frame back', () => {
+    const m = sd.model({ h: 0.4 });
+    const view = sd.zoomWindow(m, m.options.visible);
+    const zoomed = sd.chartOptions(m, m.options, {}, 700, { enabled: true, view });
+    assert.deepEqual(
+      { min: zoomed.scales.x.min, max: zoomed.scales.x.max }, { min: view.xMin, max: view.xMax },
+    );
+    assert.deepEqual(
+      { min: zoomed.scales.y.min, max: zoomed.scales.y.max }, { min: view.yMin, max: view.yMax },
+    );
+    const back = sd.chartOptions(m, m.options, {}, 700, { enabled: true, view: null });
+    assert.deepEqual(back.scales, sd.chartOptions(m, m.options, {}, 700).scales);
+  });
+
+  it('ignores a window that is not a window, instead of leaving the picture without scales', () => {
+    const m = sd.model({ h: 0.4 });
+    [{ xMin: NaN, xMax: 1, yMin: 0, yMax: 1 }, { xMin: 2, xMax: 1, yMin: 0, yMax: 1 }, { xMin: 0, xMax: 1, yMin: 1, yMax: 1 }]
+      .forEach((view) => {
+        const opt = sd.chartOptions(m, m.options, {}, 700, { enabled: true, view });
+        assert.equal(opt.scales.x.min, m.frame.xMin, JSON.stringify(view));
+        assert.equal(opt.scales.y.max, m.frame.yMax, JSON.stringify(view));
+      });
+  });
+
+  it('takes the zoom limits from the model frame even while the view is a window inside it', () => {
+    const m = sd.model({ h: 0.4 });
+    const view = sd.zoomWindow(m, m.options.visible);
+    const z = sd.chartOptions(m, m.options, {}, 700, { enabled: true, view }).plugins.zoom;
+    assert.equal(z.limits.x.min, m.frame.xMin, 'zooming out always ends at the frame, not at the window');
+    assert.equal(z.limits.y.max, m.frame.yMax);
+    assert.equal(z.zoom.wheel.modifierKey, 'ctrl');
+  });
+
+  it('pins the zoom transition to zero under prefers-reduced-motion, and leaves it alone otherwise', () => {
+    const m = sd.model({ h: 0.4 });
+    const still = sd.chartOptions(m, m.options, {}, 700, { enabled: true, animated: false });
+    assert.equal(still.transitions.zoom.animation.duration, 0);
+    assert.equal(sd.chartOptions(m, m.options, {}, 700, { enabled: true, animated: true }).transitions, undefined);
+  });
 });
 
 /* ---- Source guards ----------------------------------------------------------------------------------------- */
+
+describe('how the zoom is wired', () => {
+  const text = read('js', 'ui', 'step-diagram.js');
+
+  it('leaves the loading and the registering to deps.js and never touches the plugin global itself', () => {
+    assert.ok(!/ChartZoom/.test(code(text)), 'the plugin global belongs to deps.js');
+    assert.ok(!/cdn\.jsdelivr|https?:\/\//.test(code(text)), 'no URL in the figure');
+    // The figure only asks Chart.js whether the plugin is registered, and waits on the loader's promise.
+    assert.ok(/registry\.getPlugin\(ZOOM_PLUGIN_ID\)/.test(text));
+    assert.ok(/deps\.status\.zoom|status\.zoom/.test(text));
+  });
+
+  it('shows the two buttons and the one line of copy that names the gesture, in Spanish', () => {
+    ['Ampliar el final del paso', 'Ver todo', 'Ctrl + rueda acerca'].forEach((s) => assert.ok(text.includes(s), s));
+    assert.ok(/aria-pressed/.test(text), 'the preset reports its state to assistive technology');
+    assert.ok(/aria-live/.test(text), 'and the change is announced the way the other controls are');
+  });
+
+  it('hides the zoom group whenever the plugin is not there, instead of leaving a control that does nothing', () => {
+    assert.ok(/refs\.zoomHost\.hidden = true/.test(text));
+    assert.match(text, /zoomReady = true;\s*\n\s*refs\.zoomHost\.hidden = false;/);
+  });
+
+  it('takes the canvas touch-action back from Hammer.js, so one finger still scrolls the page', () => {
+    // Hammer.js writes `touch-action: none` to recognize the pinch; `pan-y` leaves the vertical scroll alone.
+    assert.ok(text.includes("CANVAS_TOUCH_ACTION = 'pan-y'"), 'the figure never keeps touch-action: none');
+    assert.ok(/style\.touchAction = CANVAS_TOUCH_ACTION/.test(text), 'and it is re-asserted on every repaint');
+  });
+
+  it('config.js pins the plugin and Hammer.js to exact versions', () => {
+    const cfg = require(path.join(WEB_ROOT, 'js', 'config.js'));
+    assert.match(cfg.deps.zoom, /^\d+\.\d+\.\d+$/);
+    assert.match(cfg.deps.hammer, /^\d+\.\d+\.\d+$/);
+  });
+
+  it('the page still loads only local classic scripts: the plugin is never a <script> tag of index.html', () => {
+    const html = read('index.html');
+    assert.ok(!/chartjs-plugin-zoom|hammer/i.test(html));
+  });
+});
 
 describe('Fuentes page: the course strings are verbatim (section 5.9 of the ODD document)', () => {
   const text = read('js', 'ui', 'pages', 'sources.js');

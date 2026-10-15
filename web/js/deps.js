@@ -1,17 +1,23 @@
 /**
  * EDO.deps - loader for the third-party dependencies, with graceful degradation.
  *
- *   EDO.deps.status  {katex, chart, fonts}: 'pending' | 'loaded' | 'failed' | 'skipped'
- *   EDO.deps.katex / .chart / .fonts   promises (never reject) that resolve to the final status of each item
- *   EDO.deps.ready   promise (never rejects) that resolves to `status` once all three have settled
+ *   EDO.deps.status  {katex, chart, zoom, fonts}: 'pending' | 'loaded' | 'failed' | 'skipped'
+ *   EDO.deps.katex / .chart / .zoom / .fonts   promises (never reject) that resolve to the final status of each item
+ *   EDO.deps.ready   promise (never rejects) that resolves to `status` once all four have settled
  *
  * Sources: with config.deps.vendored === true the local copy under web/vendor/ is tried first (never
  * requested when false, so no 404s in the console), then the jsDelivr CDN:
  *   KaTeX      {katex.min.css, katex.min.js, contrib/auto-render.min.js}  (version config.deps.katex)
  *   Chart.js   dist/chart.umd.min.js                                       (version config.deps.chart)
+ *   Zoom       hammer.min.js + chartjs-plugin-zoom.min.js                  (versions config.deps.hammer / .zoom)
  *   Fonts      Google Fonts (Public Sans: plain zero, unlike Atkinson), injected after the first paint, never blocking.
- * Vendored layout: vendor/katex/{katex.min.css, katex.min.js, contrib/auto-render.min.js, fonts/*.woff2}
- * and vendor/chart/chart.umd.min.js.
+ * Vendored layout: vendor/katex/{katex.min.css, katex.min.js, contrib/auto-render.min.js, fonts/*.woff2},
+ * vendor/chart/chart.umd.min.js and vendor/zoom/{hammer.min.js, chartjs-plugin-zoom.min.js}.
+ *
+ * The zoom item is an extension of Chart.js, not a dependency of its own: its UMD build reads `window.Chart`
+ * while it evaluates, so it is only requested once Chart.js is known to be there and it is registered on
+ * Chart.js only when both arrived. Without Chart.js it stays 'skipped' and nothing is requested; when it
+ * fails, "El paso" draws exactly as it did before and hides its zoom controls.
  *
  * `?nocdn=1` (in the URL query, or after the hash route) skips everything WITHOUT making any request,
  * to test the offline degradation. Each item has a timeout, so a hung network becomes 'failed'.
@@ -117,6 +123,14 @@
   const chartBundles = (cfg.vendored ? [{ js: 'vendor/chart/chart.umd.min.js' }] : []).concat([{
     js: `${CDN}chart.js@${chartVersion}/dist/chart.umd.min.js`,
   }]);
+  const zoomVersion = cfg.zoom || '2.2.0';
+  const hammerVersion = cfg.hammer || '2.0.8';
+  const zoomBundles = (cfg.vendored ? [{
+    hammer: 'vendor/zoom/hammer.min.js', js: 'vendor/zoom/chartjs-plugin-zoom.min.js',
+  }] : []).concat([{
+    hammer: `${CDN}hammerjs@${hammerVersion}/hammer.min.js`,
+    js: `${CDN}chartjs-plugin-zoom@${zoomVersion}/dist/chartjs-plugin-zoom.min.js`,
+  }]);
 
   async function loadKatexBundle(bundle) {
     const results = await Promise.all([loadStyle(bundle.css), loadScript(bundle.js)]);
@@ -126,6 +140,22 @@
 
   async function loadChartBundle(bundle) {
     return (await loadScript(bundle.js)) && typeof root.Chart === 'function';
+  }
+
+  /**
+   * Hammer.js first (it only enables the pinch gesture: wheel and drag zoom work without it), then the
+   * plugin, which is registered on Chart.js here. Both have to be there for the bundle to count as loaded.
+   */
+  async function loadZoomBundle(bundle) {
+    await loadScript(bundle.hammer);
+    if (!(await loadScript(bundle.js))) return false;
+    if (typeof root.Chart !== 'function' || !root.ChartZoom) return false;
+    try {
+      root.Chart.register(root.ChartZoom);
+    } catch (err) {
+      return false;
+    }
+    return true;
   }
 
   async function firstThatLoads(bundles, loadOne) {
@@ -146,7 +176,9 @@
   }
 
   const noCdn = readFlag('nocdn');
-  const status = { katex: 'pending', chart: 'pending', fonts: 'pending' };
+  const status = {
+    katex: 'pending', chart: 'pending', zoom: 'pending', fonts: 'pending',
+  };
 
   function settle(name, promise) {
     return promise.then(
@@ -162,8 +194,13 @@
 
   const katex = noCdn ? skipped('katex') : settle('katex', firstThatLoads(katexBundles, loadKatexBundle));
   const chart = noCdn ? skipped('chart') : settle('chart', firstThatLoads(chartBundles, loadChartBundle));
+  /** Nothing is requested when Chart.js is not there: there is nothing for the plugin to extend. */
+  const zoom = noCdn ? skipped('zoom') : chart.then((state) => (
+    state === 'loaded' ? settle('zoom', firstThatLoads(zoomBundles, loadZoomBundle)) : skipped('zoom')));
   const fonts = noCdn || cfg.fonts === false ? skipped('fonts') : settle('fonts', loadFonts());
-  const ready = Promise.all([katex, chart, fonts]).then(() => status);
+  const ready = Promise.all([katex, chart, zoom, fonts]).then(() => status);
 
-  EDO.deps = { status, katex, chart, fonts, ready, noCdn, FONTS_URL };
+  EDO.deps = {
+    status, katex, chart, zoom, fonts, ready, noCdn, FONTS_URL,
+  };
 }(typeof window !== 'undefined' ? window : this));

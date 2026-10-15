@@ -350,6 +350,38 @@
     let altBody = null;
     let altBuilt = false;
 
+    // Actions toolbar placed above chart-box (reset zoom, presets)
+    let actions = box.previousElementSibling && box.previousElementSibling.classList.contains('chart-actions')
+      ? box.previousElementSibling
+      : null;
+    if (!actions && o.actions !== false && o.resetButton !== false) {
+      actions = h('div', { class: 'chart-actions' });
+      if (Array.isArray(o.tools)) {
+        o.tools.forEach((btn) => { if (btn) actions.appendChild(btn); });
+      }
+      if (!o.customReset) {
+        const resetBtn = h('button', {
+          type: 'button',
+          class: 'chart-tool-btn',
+          title: o.resetTitle || 'Restablecer zoom y posición (Vista completa)',
+          'aria-label': o.resetLabel || 'Restablecer gráfico',
+          onclick: () => {
+            if (handle.chart && typeof handle.chart.resetZoom === 'function') {
+              handle.chart.resetZoom();
+            }
+            if (typeof o.onReset === 'function') {
+              o.onReset();
+            }
+          },
+        }, o.resetText || '↺ Restablecer');
+        if (o.resetId) resetBtn.id = o.resetId;
+        actions.appendChild(resetBtn);
+      }
+      if (box.parentNode) {
+        box.parentNode.insertBefore(actions, box);
+      }
+    }
+
     const chartReady = () => Boolean(EDO.deps && EDO.deps.status.chart === 'loaded' && typeof root.Chart === 'function');
     const hostElement = o.tableAlt && o.tableAlt.nodeType === 1 ? o.tableAlt : null;
 
@@ -375,6 +407,7 @@
     function showTableMode() {
       handle.mode = 'table';
       box.hidden = true;
+      if (actions) actions.hidden = true;
       clear(extra);
       extra.appendChild(h('p', { class: 'chart-notice', role: 'status' }, NOTICE));
       if (hostElement) {
@@ -442,6 +475,9 @@
         }
       }
       handle.chart = null;
+      if (actions && actions.parentNode) {
+        actions.parentNode.removeChild(actions);
+      }
     }
 
     handle.refresh = () => {

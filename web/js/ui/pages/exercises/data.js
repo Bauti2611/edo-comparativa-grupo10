@@ -2,19 +2,25 @@
  * EDO.exercises.data - the numbers and TeX of the Ejercicios page. Pure logic (no DOM): the page lays the values
  * out and web/tests/exercises.test.js checks them against the oracles of the ODD document (sections 5.4 to 5.6).
  * Nothing numeric is typed by hand: every value comes from the engine (`methods.solve`, `analysis.reference`).
+ * The only exception are the values the apunte publishes, which live in `EDO.config.apunte` and are never used
+ * as a result: they are only compared with what the engine recomputes.
  *
  *   catedra()          the four solved examples of the apunte (presets a1..a4)
  *   comparison()       the comparative case y' = 2xy, y(1) = 1 (preset cmp_2xy_13) with the four methods
+ *   iterations(preset) the four methods on one preset, iteration by iteration, against the exact solution
  *   bankRows()         one row per exercise of the practice sheets (groups practica05 and practica06)
  *   chartSeries(...)   the points of the figure of one problem
+ *   apunteChecks()     the published values of EDO.config.apunte recomputed by the engine (always available)
+ *   verificationLines(key)  the neutral lines of one example; empty unless `apunte.mostrarVerificacion` is true
  *   resolveSub(sub)    what a '#/ejercicios/<sub>' deep link points to
  *
- * Load order: after the numerics (expr, format, problems, methods, analysis) and steps-model.js.
+ * Load order: after config.js and the numerics (expr, format, problems, methods, analysis) and steps-model.js.
  * Also `require`-able in Node.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
     module.exports = factory({
+      config: require('../../../config.js'),
       expr: require('../../../numerics/expr.js'),
       format: require('../../../numerics/format.js'),
       problems: require('../../../numerics/problems.js'),
@@ -30,7 +36,7 @@
   'use strict';
 
   const {
-    expr, format, problems, methods, analysis,
+    config, expr, format, problems, methods, analysis,
   } = EDO;
 
   /** The four solved examples of the apunte, in order. */
@@ -40,6 +46,10 @@
   /** Groups of the practice bank. */
   const BANK_GROUPS = Object.freeze(['practica05', 'practica06']);
   const METHOD_ORDER = Object.freeze(['euler', 'taylor', 'heun', 'rk2']);
+  /** The three methods of second order: the ones the talk compares with each other. */
+  const SECOND_ORDER = Object.freeze(['taylor', 'heun', 'rk2']);
+  /** Errors closer than this (relative) are a tie: rounding noise, not a difference between methods. */
+  const TIE_REL = 1e-12;
 
   const METHOD_NAMES = Object.freeze({
     euler: 'Euler',
@@ -134,11 +144,120 @@
     };
   }
 
+  /* ---- The three methods side by side on one problem ------------------------------------------------------------- */
+
+  /**
+   * The four methods on one preset, iteration by iteration: this is the view the comparison needs, because the
+   * difference between the three methods of second order only becomes visible value by value.
+   * @param {string} presetId A preset id of the library.
+   * @returns {{problem: object, pvi: object, exactKind: 'exacta'|'referencia', rows: object[], solutions: object}}
+   *   `rows[n]` = `{n, x, exact, values: {id: y_n}, errors: {id: |exact - y_n|}, best}`; `best` is the closest of
+   *   the three methods of second order at that abscissa, or null at n = 0, where every method still has no error.
+   */
+  function iterations(presetId) {
+    const problem = problems.fromPreset(presetId);
+    const solutions = {};
+    METHOD_ORDER.forEach((id) => { solutions[id] = methods.solve(id, problem, { order: 2 }); });
+    const xs = solutions.euler.xs;
+    const exact = problem.exact ? xs.map((x) => problem.exact.fn(x)) : analysis.reference(problem, xs);
+    const rows = xs.map((x, n) => {
+      const values = {};
+      const errors = {};
+      METHOD_ORDER.forEach((id) => {
+        values[id] = solutions[id].ys[n];
+        errors[id] = Math.abs(exact[n] - values[id]);
+      });
+      const ranked = SECOND_ORDER.filter((id) => Number.isFinite(errors[id])).sort((a, b) => errors[a] - errors[b]);
+      // A tie is not a winner: on a linear problem the three methods do exactly the same arithmetic.
+      const tie = ranked.length > 1 && Math.abs(errors[ranked[0]] - errors[ranked[1]]) <= TIE_REL * Math.max(1, Math.abs(errors[ranked[1]]));
+      return {
+        n,
+        x,
+        exact: exact[n],
+        values,
+        errors,
+        best: n === 0 || !ranked.length || tie ? null : ranked[0],
+      };
+    });
+    return {
+      problem, pvi: pviTeX(problem), exactKind: problem.exact ? 'exacta' : 'referencia', rows, solutions,
+    };
+  }
+
+  /* ---- The published values of the apunte ------------------------------------------------------------------------- */
+
+  /** How many decimals a published value is written with (1.4297 -> 4), to compare at the apunte's own precision. */
+  function decimalsOf(value) {
+    const dot = String(value).indexOf('.');
+    return dot < 0 ? 0 : String(value).length - dot - 1;
+  }
+
+  /** The published value as the apunte writes it. */
+  const showPublished = (value) => format.num(value, { decimals: decimalsOf(value) });
+
+  /**
+   * A published value agrees with the engine when it is what the computed value becomes at that same number of
+   * decimals, truncated (the apunte's usual way) or rounded.
+   */
+  function agrees(published, computed) {
+    if (!Number.isFinite(computed)) return false;
+    const decimals = decimalsOf(published);
+    const want = showPublished(published);
+    return ['trunc', 'round'].some((mode) => format.num(computed, { decimals, mode }) === want);
+  }
+
+  /**
+   * The published values of `EDO.config.apunte` next to what the engine computes for the same preset with the same
+   * method. Always available: it does not depend on `mostrarVerificacion`.
+   * @returns {{key: string, preset: string, methodId: string, values: object[]}[]}
+   *   `values[i]` = `{step, published, publishedText, computed, computedText, agrees}` for y1, y2, ...
+   */
+  function apunteChecks() {
+    const block = (config && config.apunte) || {};
+    const examples = block.examples || {};
+    return Object.keys(examples).map((key) => {
+      const spec = examples[key];
+      const problem = problems.fromPreset(spec.preset);
+      const solution = methods.solve(spec.method, problem, { order: problem.order || 2 });
+      const values = (spec.published || []).map((published, i) => {
+        const computed = solution.ys[i + 1];
+        return {
+          step: i + 1,
+          published,
+          publishedText: showPublished(published),
+          computed,
+          computedText: show(computed, 'round', 6),
+          agrees: agrees(published, computed),
+        };
+      });
+      return {
+        key, preset: spec.preset, methodId: spec.method, values,
+      };
+    });
+  }
+
+  /**
+   * The verification lines of one example: one neutral line per published value that does not follow from the
+   * apunte's own expression. Empty while `EDO.config.apunte.mostrarVerificacion` is false, which is the default.
+   * @param {string} key Key of the example in `EDO.config.apunte.examples` ('ej1' .. 'ej4').
+   * @returns {string[]}
+   */
+  function verificationLines(key) {
+    const block = (config && config.apunte) || {};
+    if (block.mostrarVerificacion !== true) return [];
+    const entry = apunteChecks().find((c) => c.key === key);
+    if (!entry) return [];
+    return entry.values.filter((v) => !v.agrees)
+      .map((v) => `Valor publicado en el apunte: ${v.publishedText} · Valor recalculado con la misma fórmula: ${v.computedText}`);
+  }
+
   /* ---- Section A: the apunte's examples ---------------------------------------------------------------------------- */
 
   /**
    * The four solved examples of the apunte. Each entry: `{id, slug, number, problem, methodId, methodName, chip,
-   * pvi, solution, notes, series}`; `series` is the figure of that example (its method against the exact curve).
+   * pvi, solution, notes, verification, compare, series}`; `series` is the figure of that example (its method
+   * against the exact curve), `compare` the same PVI solved with the four methods iteration by iteration and
+   * `verification` the lines of the published values (empty unless the config switch is on).
    */
   function catedra() {
     return CATEDRA_IDS.map((id, i) => {
@@ -156,6 +275,8 @@
         pvi: pviTeX(problem),
         solution,
         notes: problem.notes,
+        verification: verificationLines(CARD_SLUGS[i]),
+        compare: iterations(id),
         series: chartSeries(problem, [solution]),
       };
     });
@@ -293,6 +414,7 @@
     COMPARE_ID,
     BANK_GROUPS,
     METHOD_ORDER,
+    SECOND_ORDER,
     METHOD_NAMES,
     CHIP_NAMES,
     CARD_SLUGS,
@@ -303,6 +425,9 @@
     modeNotice,
     pviTeX,
     chartSeries,
+    iterations,
+    apunteChecks,
+    verificationLines,
     catedra,
     comparison,
     bankRows,

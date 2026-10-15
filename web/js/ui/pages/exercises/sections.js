@@ -100,6 +100,44 @@
       : null;
   }
 
+  /**
+   * The four methods on the same PVI, iteration by iteration: in each cell the value of that method and, below it,
+   * its error against the exact value. Highlighted, in each row, the closest of the three methods of second order.
+   * `cmp` is an `EDO.exercises.data.iterations(...)` result.
+   */
+  function iterationsTable(env, cmp) {
+    const { h, kit, data } = env;
+    const mode = env.mode();
+    const exactName = cmp.exactKind === 'exacta' ? 'Exacta' : 'Referencia';
+    const indep = cmp.problem.indep || 'x';
+    const cell = (row, id) => {
+      const text = data.show(row.values[id], mode, 6);
+      const value = id === row.best
+        ? [h('mark', { class: 'hl' }, text), h('span', { class: 'sr-only' }, ' (el más cercano de los tres de segundo orden)')]
+        : text;
+      return {
+        c: [value, h('span', { class: 'muted exercises-cmp__error' }, data.showError(row.errors[id]))],
+        num: true,
+      };
+    };
+    const rows = cmp.rows.map((row) => ({
+      cells: [{ c: String(row.n), row: true, num: true }, { c: data.show(row.x, 'round', 4), num: true }]
+        .concat(data.METHOD_ORDER.map((id) => cell(row, id)))
+        .concat([{ c: data.show(row.exact, 'round', 6), num: true }]),
+    }));
+    const anyBest = cmp.rows.some((row) => row.best);
+    return kit.table({
+      label: `Valor de cada método en cada iteración de ${cmp.problem.title || 'el problema'}`,
+      caption: `Cada celda trae el valor del método y, debajo, su error contra la solución ${cmp.exactKind}. ${anyBest
+        ? 'Está resaltado, en cada fila, el más cercano de los tres métodos de segundo orden.'
+        : 'En este problema los tres métodos de segundo orden dan el mismo valor en cada iteración, así que no hay ninguno más cercano.'}`,
+      head: [{ c: 'n', num: true }, { c: `$${indep}_n$`, num: true }]
+        .concat(data.METHOD_ORDER.map((id) => ({ c: kit.methodChip(id, data.CHIP_NAMES[id]), num: true })))
+        .concat([{ c: exactName, num: true }]),
+      rows,
+    });
+  }
+
   function card(env, e, open) {
     const { h, kit } = env;
     const solutionHost = h('div', { class: 'exercise-card__solution' });
@@ -107,8 +145,18 @@
     const figure = h('figure', { class: 'chart exercise-card__chart' },
       h('div', { class: 'chart-box' }, canvas),
       h('figcaption', null, `Solución numérica (${e.methodName}) y solución exacta de $${e.pvi.f}$, $${e.pvi.ic}$, con $${e.pvi.h}$.`));
+    // The comparison comes first: the topic of the talk is the difference between the three methods of second
+    // order on the same PVI. The resolution the apunte asks for, with its own method, follows right below.
+    const compareHost = h('div', { class: 'exercise-card__compare' }, iterationsTable(env, e.compare));
+    env.onMode(() => {
+      compareHost.replaceChildren(iterationsTable(env, e.compare));
+      env.hydrate(compareHost);
+    });
     const body = h('div', { class: 'exercise-card__body' },
-      notesList(h, e.notes),
+      notesList(h, (e.notes || []).concat(e.verification || [])),
+      kit.extensionWide('Los tres métodos de segundo orden sobre este mismo PVI, con Euler como referencia',
+        h('p', null, `El apunte resuelve este ejemplo con ${e.methodName}. La tabla agrega los otros métodos sobre el mismo problema y el mismo paso, iteración por iteración, para ver en qué se separan.`),
+        compareHost),
       solutionHost,
       figure,
       h('p', { class: 'exercise-card__actions' }, h('a', { class: 'btn', href: `#/simulador?preset=${e.id}` }, 'Abrir en el simulador')));
@@ -132,7 +180,7 @@
     const entries = data.catedra();
     return section(h, 'catedra', 'Ejercicios resueltos de la cátedra',
       h('div', { class: 'prose' },
-        h('p', null, 'Son los cuatro ejemplos del apunte, uno por método: Taylor de grado 2, Euler, Euler Mejorado y RK de grado 2 (punto medio). Cada tarjeta se abre para ver la resolución completa, con el formato que se pide en clase, y el gráfico de la solución numérica contra la exacta.')),
+        h('p', null, 'Son los cuatro ejemplos del apunte, uno por método: Taylor de grado 2, Euler, Euler Mejorado y RK de grado 2 (punto medio). Cada tarjeta se abre con la tabla de los cuatro métodos sobre ese mismo PVI, iteración por iteración, y debajo la resolución completa con el método que pide el apunte, en el formato que se usa en clase, más el gráfico de la solución numérica contra la exacta.')),
       h('div', { class: 'exercise-cards' }, entries.map((e, i) => card(env, e, i === 0))));
   }
 
@@ -176,7 +224,8 @@
         c.gainOverEuler ? `: unas ${data.show(c.gainOverEuler, 'round', 1)} veces más que el mejor de los tres.` : '.'),
       h('p', null,
         'Los tres tienen el mismo orden de error global, $O(h^2)$, así que cuál queda más cerca depende del problema: lo que cambia es la constante del error local, no el orden. Se explica en ',
-        kit.link('#/teoria/error', 'Teoría: error y orden'), ' y se mide en la ', kit.link('#/comparativa', 'Comparativa'), '.'));
+        kit.link('#/comparativa/constantes', 'Comparativa: la constante del error local'), ' y se mide en el ',
+        kit.link('#/comparativa/convergencia', 'orden de convergencia'), '.'));
   }
 
   function comparativo(env) {
@@ -186,6 +235,14 @@
     env.onMode(() => {
       tableHost.replaceChildren(comparisonTable(env, cmp));
       env.hydrate(tableHost);
+    });
+
+    // The final value says who wins; the iteration-by-iteration table says where the three start to separate.
+    const steps = data.iterations(data.COMPARE_ID);
+    const stepsHost = h('div', { class: 'exercise-compare__table' }, iterationsTable(env, steps));
+    env.onMode(() => {
+      stepsHost.replaceChildren(iterationsTable(env, steps));
+      env.hydrate(stepsHost);
     });
 
     const canvas = h('canvas');
@@ -207,6 +264,8 @@
       h('div', { class: 'prose' },
         h('p', null, `Es el mismo problema de los Ejemplos 1 y 4 del apunte, $${cmp.pvi.f}$ con $${cmp.pvi.ic}$ y $${cmp.pvi.h}$, ahora resuelto con los tres métodos de segundo orden y con Euler como referencia. Se pide $${cmp.pvi.ask}$.`)),
       tableHost,
+      h('h3', { class: 'exercise-compare__subtitle' }, 'Iteración por iteración'),
+      stepsHost,
       figure,
       closing(env, cmp),
       h('h3', { class: 'exercise-compare__subtitle' }, 'Resolución paso a paso'),
@@ -316,6 +375,6 @@
   ]);
 
   return {
-    NAV, MODE_LABELS, SECTIONS, header, catedra, comparativo, banco, card, bankRow, comparisonTable,
+    NAV, MODE_LABELS, SECTIONS, header, catedra, comparativo, banco, card, bankRow, comparisonTable, iterationsTable,
   };
 }));

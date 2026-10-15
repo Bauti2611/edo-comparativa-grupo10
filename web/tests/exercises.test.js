@@ -6,6 +6,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
+const config = require('../js/config.js');
 const format = require('../js/numerics/format.js');
 const data = require('../js/ui/pages/exercises/data.js');
 const sections = require('../js/ui/pages/exercises/sections.js');
@@ -245,5 +246,71 @@ describe('exercises sections (stand-in DOM)', () => {
     c2.modeFns.forEach((fn) => fn('round'));
     const after = text(el);
     assert.notEqual(before, after);
+  });
+
+  it('open every example with the four methods on the same PVI, iteration by iteration', () => {
+    const tables = find(built[0].el, (n) => n.tag === 'table');
+    assert.equal(tables.length, 4, 'one comparison table per card');
+    const heads = find(tables[0], (n) => n.tag === 'th' && n.attrs.scope === 'col').map(text);
+    assert.deepEqual(heads, ['n', '$x_n$', 'Euler', 'Taylor', 'Euler Mejorado', 'RK2', 'Exacta']);
+    const rows = find(tables[0], (n) => n.tag === 'tr').slice(1);
+    assert.equal(rows.length, 4, 'n = 0 .. 3 of Ejemplo 1');
+    // The first iteration of each method on y' = 2xy, y(1) = 1, h = 0.1 (1.2 Euler, 1.23, 1.232, 1.231).
+    const body = text(tables[0]);
+    ['1.200000', '1.230000', '1.232000', '1.231000'].forEach((v) => assert.ok(body.includes(v), v));
+    // The closest of the three methods of second order is marked in each row except n = 0, where nobody errs yet.
+    assert.equal(find(tables[0], (n) => n.tag === 'mark').length, 3);
+  });
+});
+
+/* ---- The published values of the apunte and the optional verification line ---- */
+
+describe('the published values of the apunte against the engine', () => {
+  const checks = data.apunteChecks();
+  const byKey = Object.fromEntries(checks.map((c) => [c.key, c]));
+
+  it('recompute every example with its own preset and method', () => {
+    assert.deepEqual(checks.map((c) => c.key), ['ej1', 'ej2', 'ej3', 'ej4']);
+    assert.deepEqual(checks.map((c) => c.preset), ['a1', 'a2', 'a3', 'a4']);
+    assert.deepEqual(checks.map((c) => c.methodId), ['taylor', 'euler', 'heun', 'rk2']);
+  });
+
+  it('agree with Ejemplos 1 and 4 and disagree only in y2 of Ejemplos 2 and 3', () => {
+    assert.ok(byKey.ej1.values.every((v) => v.agrees));
+    assert.ok(byKey.ej4.values.every((v) => v.agrees));
+    assert.deepEqual(byKey.ej2.values.map((v) => v.agrees), [true, false]);
+    assert.deepEqual(byKey.ej3.values.map((v) => v.agrees), [true, false]);
+    assert.equal(byKey.ej2.values[1].publishedText, ERRATA[0]);
+    near(byKey.ej2.values[1].computed, 1.0429781, 5e-8);
+    assert.equal(byKey.ej3.values[1].publishedText, ERRATA[1]);
+    near(byKey.ej3.values[1].computed, 1.390625, 1e-12);
+  });
+
+  it('say nothing while the switch is off (the default)', () => {
+    assert.equal(config.apunte.mostrarVerificacion, false);
+    ['ej1', 'ej2', 'ej3', 'ej4'].forEach((key) => assert.deepEqual(data.verificationLines(key), []));
+    const { env } = makeEnv('trunc');
+    const rendered = text(sections.catedra(env));
+    ERRATA.forEach((v) => assert.ok(!rendered.includes(v), v));
+  });
+
+  it('write one neutral line with both numbers when the switch is forced on', () => {
+    config.apunte.mostrarVerificacion = true;
+    try {
+      assert.deepEqual(data.verificationLines('ej1'), []);
+      assert.deepEqual(data.verificationLines('ej4'), []);
+      assert.deepEqual(data.verificationLines('ej2'), [
+        'Valor publicado en el apunte: 1.4297 · Valor recalculado con la misma fórmula: 1.042978',
+      ]);
+      assert.deepEqual(data.verificationLines('ej3'), [
+        'Valor publicado en el apunte: 1.4843 · Valor recalculado con la misma fórmula: 1.390625',
+      ]);
+      const { env } = makeEnv('trunc');
+      const rendered = text(sections.catedra(env));
+      data.verificationLines('ej2').concat(data.verificationLines('ej3'))
+        .forEach((line) => assert.ok(rendered.includes(line), line));
+    } finally {
+      config.apunte.mostrarVerificacion = false;
+    }
   });
 });

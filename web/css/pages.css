@@ -233,8 +233,12 @@
   order: 4;
 }
 
-.step-diagram__readout {
+.step-diagram__zoom {
   order: 5;
+}
+
+.step-diagram__readout {
+  order: 6;
 }
 
 @container step-diagram (min-width: 58rem) {
@@ -268,6 +272,7 @@
   .step-diagram__h,
   .step-diagram__methods,
   .step-diagram__show,
+  .step-diagram__zoom,
   .step-diagram__readout {
     order: 0;
   }
@@ -333,6 +338,29 @@
   gap: 0 var(--space-m);
 }
 
+/*
+ * The two zoom buttons sit next to the switches that also only change the picture. They wrap instead of
+ * overflowing: at 390 px "Ampliar el final del paso" takes the whole line and "Ver todo" goes under it.
+ */
+.step-diagram__zoom-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  margin-top: 0.125rem;
+}
+
+.step-diagram__zoom-buttons > .btn {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.step-diagram__hint {
+  max-inline-size: 42ch;
+  margin: 0.25rem 0 0;
+  font-size: var(--step--1);
+  line-height: var(--lh-snug);
+}
+
 /* An unchecked method keeps its colour and shape in the chip but loses the fill and the solid outline. */
 .step-diagram__toggle input:not(:checked) + .method-chip {
   border-style: dashed;
@@ -380,6 +408,42 @@
 
 .step-diagram__readout tr[data-exact] > * {
   border-top: 1px solid var(--border-strong);
+}
+
+/*
+ * The y_{n+1} of a row doubles as the control that frames that value in the picture: the keyboard and screen
+ * reader route to the close-up a click on a painted canvas label gives the mouse. It looks like the number it
+ * carries - same font, same tabular figures, same alignment - with a dotted underline as the only hint that it
+ * can be pressed, and it fills its cell so the whole number is the target, also at 390 px.
+ */
+.step-diagram__focus {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0.1rem 0.2rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-s);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: inherit;
+  text-decoration: underline dotted currentColor;
+  text-underline-offset: 0.25em;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+}
+
+.step-diagram__focus:hover {
+  border-color: var(--border);
+  background: var(--sunken);
+}
+
+/* The row whose value the picture is looking at closely, with the pressed state the preset button also reports. */
+.step-diagram__focus[aria-pressed="true"] {
+  border-color: var(--border-strong);
+  background: var(--sunken);
+  text-decoration-style: solid;
 }
 
 /* In a narrow container the table keeps only the numbers and short names: the rest would force a sideways scroll. */
@@ -670,6 +734,18 @@
   font-size: var(--step--1);
 }
 
+/* "Lo esencial": the fast path of a method section, with its caption right under the highlighted formula. */
+.theory-section .callout > .theory-caption {
+  margin-top: -0.2em;
+  color: var(--ink-3);
+  font-size: var(--step--1);
+}
+
+/* A derivation kept available but out of the main reading flow (kit.fold). */
+.theory-fold {
+  max-width: var(--measure);
+}
+
 .theory-notation,
 .theory-glossary {
   display: grid;
@@ -711,6 +787,15 @@
 
 .theory-recipe > li + li {
   margin-top: 0.75em;
+}
+
+/* The order of the operations inside a method's own block: tighter than the page-level recipe above it. */
+.theory-recipe--ops {
+  margin: 0;
+}
+
+.theory-recipe--ops > li + li {
+  margin-top: 0.3em;
 }
 
 .theory-display {
@@ -1153,6 +1238,16 @@
   margin-top: 0.25em;
 }
 
+.exercise-card__compare {
+  min-width: 0;
+}
+
+/* The error of each method sits under its value, inside the same cell of the iteration-by-iteration table. */
+.exercises-cmp__error {
+  display: block;
+  font-size: var(--step--2);
+}
+
 /* ---- B. Comparative case ---- */
 
 .exercise-compare__table,
@@ -1511,6 +1606,11 @@
   margin: 0;
 }
 
+/* "El paso" on the selected case: it follows the width of the section, like a chart does. */
+.cmp__diagram {
+  min-width: 0;
+}
+
 /* The error ruler of the same-problem table: the length encodes log10 of the error. */
 .cmp-bar {
   display: block;
@@ -1602,6 +1702,40 @@
 
 .home .title-block {
   margin-bottom: 0;
+}
+
+/*
+ * The assigned topic, stated before the demo. The rule on its left is the three methods in their own colours
+ * (the same ones every chart and chip uses), because what the block says is that these three are the comparison.
+ */
+.home-thesis {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2xs);
+  padding-left: var(--space-s);
+  background-image: linear-gradient(180deg, var(--m-taylor) 0 33.33%, var(--m-heun) 33.33% 66.66%, var(--m-rk2) 66.66%);
+  background-repeat: no-repeat;
+  background-size: 4px 100%;
+}
+
+.home-thesis__question {
+  max-width: 34ch;
+  font-size: var(--step-3);
+  font-weight: 800;
+  line-height: var(--lh-tight);
+  letter-spacing: -0.015em;
+}
+
+.home-thesis__text {
+  max-width: var(--measure);
+  color: var(--ink-2);
+}
+
+.home-thesis__links {
+  --gap: var(--space-m);
+
+  margin-top: var(--space-3xs);
+  font-size: var(--step--1);
 }
 
 /* Hero: the guiding question is the thesis of the talk; the diagram right under it answers it. */

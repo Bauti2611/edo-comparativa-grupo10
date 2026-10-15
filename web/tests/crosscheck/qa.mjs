@@ -7,6 +7,11 @@
 //               then any number of actions, executed in order:
 //               --click "<css selector>"   --key "<Key>"   --eval "<js expr>"   --set "<selector>" "<value>"
 //               --sleep <ms>   --shot <file.png>   --shot-full <file.png>   --goto "<url>"
+//               --wheel "<selector>" "<deltaY>[,ctrl]"   one wheel notch over the centre of the element
+//               --drag  "<selector>" "<x1,y1,x2,y2>"     a drag between two points of the element's box,
+//                                                        each coordinate as a fraction of the box (0..1)
+// The wheel and the drag are dispatched through the protocol, so the page sees trusted events: a plain wheel
+// really scrolls the page unless the page itself calls preventDefault on it.
 // Exit code 1 when console errors, uncaught exceptions or failed (non-aborted) requests were seen.
 //
 // Example:  node qa.mjs --url "file:///C:/path/to/web/index.html#/teoria" --wait-for "window.EDO&&EDO.app&&EDO.app.ready"
@@ -33,6 +38,8 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === '--mobile') opt.mobile = true;
   else if (a === '--offline') opt.offline = true;
   else if (a === '--set') opt.actions.push({ t: 'set', sel: next(), val: next() });
+  else if (a === '--wheel') opt.actions.push({ t: 'wheel', sel: next(), val: next() });
+  else if (a === '--drag') opt.actions.push({ t: 'drag', sel: next(), val: next() });
   else if (['--click', '--key', '--eval', '--sleep', '--shot', '--shot-full', '--goto'].includes(a)) opt.actions.push({ t: a.slice(2), v: next() });
   else { console.error('unknown arg ' + a); process.exit(2); }
 }
@@ -142,6 +149,26 @@ async function main() {
       await sleep(350);
     } else if (a.t === 'eval') { const r = await evaluate(a.v); report.evals.push({ expr: a.v, ...r }); }
     else if (a.t === 'set') { const r = await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(a.sel)});if(!e)return 'NOT FOUND';e.value=${JSON.stringify(a.val)};e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return 'set'})()`); report.notes.push(`set ${a.sel}: ${r.value ?? r.error}`); await sleep(350); }
+    else if (a.t === 'wheel' || a.t === 'drag') {
+      const box = (await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(a.sel)});if(!e)return null;const r=e.getBoundingClientRect();return {x:r.left,y:r.top,w:r.width,h:r.height}})()`)).value;
+      if (!box) { report.notes.push(`${a.t} ${a.sel}: NOT FOUND`); continue; }
+      const at = (fx, fy) => ({ x: Math.round(box.x + box.w * fx), y: Math.round(box.y + box.h * fy) });
+      if (a.t === 'wheel') {
+        const modifiers = /ctrl/i.test(a.val) ? 2 : 0; // CDP: Alt 1, Ctrl 2, Meta 4, Shift 8
+        const p = at(0.5, 0.5);
+        await send('Input.dispatchMouseEvent', { type: 'mouseWheel', ...p, deltaX: 0, deltaY: parseFloat(a.val) || 0, modifiers, pointerType: 'mouse' });
+        report.notes.push(`wheel ${a.sel}: ${a.val}`);
+      } else {
+        const [x1, y1, x2, y2] = String(a.val).split(',').map(Number);
+        const from = at(x1, y1); const to = at(x2, y2);
+        const mid = { x: Math.round((from.x + to.x) / 2), y: Math.round((from.y + to.y) / 2) };
+        await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...from, button: 'left', buttons: 1, clickCount: 1 });
+        for (const p of [mid, to]) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...p, button: 'left', buttons: 1 }); await sleep(60); }
+        await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...to, button: 'left', buttons: 0, clickCount: 1 });
+        report.notes.push(`drag ${a.sel}: ${a.val}`);
+      }
+      await sleep(350);
+    }
     else if (a.t === 'sleep') await sleep(+a.v);
     else if (a.t === 'shot') await shot(a.v, false);
     else if (a.t === 'shot-full') await shot(a.v, true);

@@ -11,9 +11,20 @@
  *   convergenceStudy(caseId)           h, h/2, ..., h/32 from the case's h: errors at x_f, observed orders, estimate
  *   slopeLines(study), workPrecision(study)       reference slopes 1 and 2; (total evaluations, error) points
  *   linearDemo({lambda, h, steps})     y' = λy: the three second-order methods coincide; |R(hλ)| > 1 is unstable
- *   summaryMatrix(), conclusions(result, study), localConstants(caseId)
+ *   stabilityScan(zs)                  R(z) of the four methods for several z = hλ, with the verdict of each row
+ *   winners(), noUniversalWinner()     which second-order method wins each catalogue case, and the sentence it proves
+ *   taylorFarthest()                   in how many catalogue cases Taylor is the farthest of the three
+ *   orderTable(), costTable()          local/global error order per method; evaluations per step (Taylor 2, 3, 4)
+ *   taylorDegrees()                    what a higher Taylor degree buys: y_1, the error of one step and its drop
+ *   summaryMatrix(), conclusions(result, study)
+ *   localConstants(caseId)             C of the one-step error, predicted vs measured, and the ratio as h falls
+ *   constantsOverview()                the same constants for every comparison case: the winner changes
  *
- * Load order: after the numerics (expr, format, problems, methods, analysis). Also `require`-able in Node.
+ * The Ordenada Genérica of each method and the stability scan are read from EDO.theory.data, the pure module that
+ * already computes them for the apunte's example: the formulas of the cátedra have one source, not two.
+ *
+ * Load order: after the numerics (expr, format, problems, methods, analysis) and theory/data.js.
+ * Also `require`-able in Node.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -22,6 +33,7 @@
       problems: require('../../../numerics/problems.js'),
       methods: require('../../../numerics/methods.js'),
       analysis: require('../../../numerics/analysis.js'),
+      theory: { data: require('../theory/data.js') },
     });
   } else {
     const EDO = (root.EDO = root.EDO || {});
@@ -34,6 +46,7 @@
   const {
     format, problems, methods, analysis,
   } = EDO;
+  const theoryData = EDO.theory.data;
 
   const IDS = Object.freeze(['euler', 'taylor', 'heun', 'rk2']);
   const SECOND = Object.freeze(['taylor', 'heun', 'rk2']);
@@ -52,6 +65,16 @@
   const UNSTABLE_TOL = 1e-12;
   /** How far an estimated order may be from 1 or 2 for the conclusions to say it matches the theory. */
   const ORDER_TOL = 0.15;
+  /** Taylor degrees the cost table lists next to the one-stage and two-stage methods. */
+  const TAYLOR_DEGREES = Object.freeze([2, 3, 4]);
+  /** Which worked example of the apunte each method comes from (the apunte's own numbering). */
+  const APUNTE = Object.freeze({
+    euler: 'Ejemplo 2', taylor: 'Ejemplo 1', heun: 'Ejemplo 3', rk2: 'Ejemplo 4',
+  });
+  /** Euler's step: the definition of the method, the one Ordenada Genérica the apunte does not print apart. */
+  const EULER_GENERIC = "y_{n+1} = y_n + h\\,y_n'";
+  /** How many halvings of h the local-error ratio table covers. */
+  const RATIO_LEVELS = 4;
 
   /** Removes binary noise such as 0.30000000000000004 / 3 -> 0.1. */
   const clean = (v) => Number(Number(v).toPrecision(12));
@@ -294,6 +317,23 @@
     };
   }
 
+  /**
+   * R(z) of the four methods for several z = hλ, measured by running one step of each (never from the polynomial),
+   * with the verdict of the row: whether the computed values decay, sit at the edge or grow.
+   * @param {number[]} [zs] Values of z = hλ (default: the scan around the edge of the real stability interval).
+   * @returns {{z, euler, taylor, heun, rk2, verdict: 'decae'|'limite'|'crece'}[]}
+   */
+  function stabilityScan(zs) {
+    const tol = 1e-9;
+    return theoryData.stabilityTable(zs).map((row) => {
+      const mags = IDS.map((id) => Math.abs(row[id]));
+      let verdict = 'decae';
+      if (!mags.every((m) => m <= 1 + tol)) verdict = 'crece';
+      else if (mags.some((m) => Math.abs(m - 1) <= tol)) verdict = 'limite';
+      return Object.assign({}, row, { verdict });
+    });
+  }
+
   /* ---- Summary and conclusions ---------------------------------------------------------------------------- */
 
   const BY_HAND = Object.freeze({
@@ -304,28 +344,151 @@
   });
 
   function summaryMatrix() {
+    const generics = theoryData.firstStep('trunc');
     return IDS.map((id) => {
       const cost = methods.costPerStep(id, 2);
       return {
         id,
         label: LABELS[id],
         order: methods.byId(id).order,
+        generic: id === 'euler' ? EULER_GENERIC : generics[id].generic,
         perStep: cost.total,
+        fEvals: cost.f,
+        derivEvals: cost.deriv,
         derivatives: cost.deriv > 0,
         byHand: BY_HAND[id],
+        apunte: APUNTE[id],
       };
     });
   }
 
+  /**
+   * Local error, global error and the factor by which halving h divides the global error, per method:
+   * a method of order p has a local error O(h^{p+1}) and halving h divides its global error by 2^p.
+   * @returns {{id, label, order, localOrder, halving}[]}
+   */
+  function orderTable() {
+    return IDS.map((id) => {
+      const order = methods.byId(id).order;
+      return {
+        id, label: LABELS[id], order, localOrder: order + 1, halving: 2 ** order,
+      };
+    });
+  }
+
+  /**
+   * What the extra evaluations of a higher Taylor degree buy: the value of y_1 after one step of the apunte's
+   * own example, the error of that step and by how much it fell from the previous degree. `drop` is null on the
+   * first row. The TeX of y''' and y'''' shows what has to be derived by hand to get there.
+   * @returns {{problem, h, exact, y3TeX, y4TeX, rows: {order, y1, error, drop}[]}}
+   */
+  function taylorDegrees() {
+    const t = theoryData.taylorExample();
+    return {
+      problem: t.problem,
+      h: t.h,
+      exact: t.exact,
+      y3TeX: t.y3TeX,
+      y4TeX: t.y4TeX,
+      rows: t.degrees.map((d, i) => ({
+        order: d.order,
+        y1: d.y1,
+        error: d.error,
+        drop: i > 0 ? t.degrees[i - 1].error / d.error : null,
+      })),
+    };
+  }
+
+  /**
+   * Evaluations per step: the one-stage and two-stage methods, then Taylor of every degree of the catalogue.
+   * `derivatives` says whether f has to be derived by hand before iterating.
+   * @returns {{key, id, label, degree, f, deriv, total, derivatives}[]}
+   */
+  function costTable() {
+    const plainRows = ['euler', 'heun', 'rk2'].map((id) => {
+      const cost = methods.costPerStep(id);
+      return {
+        key: id,
+        id,
+        label: LABELS[id],
+        degree: null,
+        f: cost.f,
+        deriv: cost.deriv,
+        total: cost.total,
+        derivatives: cost.deriv > 0,
+      };
+    });
+    const taylorRows = TAYLOR_DEGREES.map((degree) => {
+      const cost = methods.costPerStep('taylor', degree);
+      return {
+        key: `taylor${degree}`,
+        id: 'taylor',
+        label: `Taylor de grado ${degree}`,
+        degree,
+        f: cost.f,
+        deriv: cost.deriv,
+        total: cost.total,
+        derivatives: cost.deriv > 0,
+      };
+    });
+    return plainRows.concat(taylorRows);
+  }
+
   const nameOf = (id) => LABELS[id];
 
-  /** The second-order winner of each comparison case at its own h (to show that the winner changes). */
+  /**
+   * The second-order winner of each comparison case at its own h (to show that the winner changes), with the
+   * value every method reaches at x_f and the reference it is measured against, so one table can show them all.
+   * @returns {{id, title, bestId, worstId, exact, problem, h, xf, values, reference}[]}
+   */
   function winners() {
     return problems.PRESETS.filter((p) => p.group === 'comparativa').map((p) => {
-      const r = sameProblem(p.id, baseH(p));
-      const best = r.rows.filter((row) => SECOND.includes(row.id) && finite(row.abs)).sort((a, b) => a.abs - b.abs)[0];
-      return { id: p.id, title: p.title, bestId: best ? best.id : null };
+      const h = baseH(p);
+      const r = sameProblem(p.id, h);
+      const second = r.rows.filter((row) => SECOND.includes(row.id) && finite(row.abs)).sort((a, b) => a.abs - b.abs);
+      const values = {};
+      r.rows.forEach((row) => { values[row.id] = row.y; });
+      return {
+        id: p.id,
+        title: p.title,
+        bestId: second.length ? second[0].id : null,
+        worstId: second.length ? second[second.length - 1].id : null,
+        exact: r.reference.kind === 'exact',
+        problem: r.problem,
+        h,
+        xf: clean(r.problem.xf),
+        values,
+        reference: r.reference.value,
+      };
     });
+  }
+
+  /**
+   * How often Taylor de grado 2 is the farthest of the three second-order methods over the catalogue of
+   * comparison cases: the evidence behind "the same order does not make it more precise".
+   * @returns {{count: number, total: number, always: boolean}}
+   */
+  function taylorFarthest() {
+    const list = winners().filter((w) => w.worstId);
+    const count = list.filter((w) => w.worstId === 'taylor').length;
+    return { count, total: list.length, always: list.length > 0 && count === list.length };
+  }
+
+  /**
+   * One sentence, written from the engine, about how the catalogue of comparison cases with a known exact solution
+   * splits between the three second-order methods. Empty string when there is no such case to count.
+   * @returns {string}
+   */
+  function noUniversalWinner() {
+    const list = winners().filter((w) => w.exact && w.bestId);
+    if (!list.length) return '';
+    const tally = SECOND.map((id) => ({ id, count: list.filter((w) => w.bestId === id).length })).filter((t) => t.count > 0);
+    const parts = tally.map((t) => `${nameOf(t.id)} en ${t.count}`);
+    const join = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]}` : parts[0];
+    const head = `Sobre los ${list.length} casos de este catálogo con solución exacta conocida, el más cercano es ${join}`;
+    return tally.length > 1
+      ? `${head}. El ganador cambia de problema en problema: no hay uno universal.`
+      : `${head}, siempre el mismo en este catálogo; con otros problemas el orden cambia, porque lo que los distingue es la constante del error.`;
   }
 
   /**
@@ -394,28 +557,62 @@
     return lines;
   }
 
+  /** Error of one step of size `step` from (x0, y0): reference value minus the value the method computes. */
+  function oneStepError(problem, id, step) {
+    const sol = methods.solve(id, problem, { h: step, N: 1, order: id === 'taylor' ? 2 : undefined });
+    const x1 = problem.x0 + step;
+    const reference = problem.exact ? problem.exact.fn(x1) : analysis.reference(problem, [x1])[0];
+    return { y1: sol.ys[1], measured: reference - sol.ys[1] };
+  }
+
   /**
    * One-step error constants at (x0, y0) (ampliación): exact minus numerical ≈ C·h³ for each second-order method,
-   * their ranking by |C| and whether it matches the ranking observed at x_f with the case's own h.
-   * @returns {{x0, y0, values: {taylor, rk2, heun}, F2, D, fyD, ranking: string[], observed: string[], matchesObserved}|null}
+   * their ranking by |C| and whether it matches the ranking observed at x_f with the case's own h. `measured`
+   * and `predicted` put the leading term next to the error a real step of the case's own h commits, and `ratios`
+   * shows that their quotient tends to 1 as h falls (the h⁴ and higher terms lose weight).
+   * @returns {{caseId, x0, y0, h, values, predicted, measured, euler, ratios, F2, D, fyD,
+   *   ranking: string[], observed: string[], matchesObserved}|null}
    */
   function localConstants(caseId) {
     const preset = presetOf(caseId);
+    const problem = problems.fromPreset(preset.id);
     let c;
     try {
-      c = analysis.localErrorConstants(problems.fromPreset(preset.id), preset.x0, preset.y0);
+      c = analysis.localErrorConstants(problem, preset.x0, preset.y0);
     } catch (err) {
       return null;
     }
     const values = { taylor: c.taylor, rk2: c.rk2, heun: c.heun };
     if (!SECOND.every((id) => finite(values[id]))) return null;
+    const h0 = baseH(preset);
+    const predicted = {};
+    const measured = {};
+    SECOND.forEach((id) => {
+      predicted[id] = values[id] * h0 ** 3;
+      measured[id] = oneStepError(problem, id, h0).measured;
+    });
+    const ratios = Array.from({ length: RATIO_LEVELS }, (_, k) => {
+      const step = clean(h0 / 2 ** k);
+      const row = { h: step };
+      SECOND.forEach((id) => {
+        const c3 = values[id] * step ** 3;
+        row[id] = c3 === 0 ? null : oneStepError(problem, id, step).measured / c3;
+      });
+      return row;
+    });
     const ranking = SECOND.slice().sort((a, b) => Math.abs(values[a]) - Math.abs(values[b]));
-    const observed = sameProblem(preset.id, baseH(preset)).rows
+    const observed = sameProblem(preset.id, h0).rows
       .filter((r) => SECOND.includes(r.id) && finite(r.abs)).sort((a, b) => a.abs - b.abs).map((r) => r.id);
     return {
+      caseId: preset.id,
       x0: preset.x0,
       y0: preset.y0,
+      h: h0,
       values,
+      predicted,
+      measured,
+      euler: oneStepError(problem, 'euler', h0).measured,
+      ratios,
       F2: c.F2,
       D: c.D,
       fyD: c.fyD,
@@ -425,10 +622,42 @@
     };
   }
 
+  /**
+   * The same constants for every comparison case of the catalogue: only the coefficient of F2 changes between
+   * the three methods, so which one has the smallest |C| depends on the sign and the size of F2 against f_y D.
+   * This is the table that shows, in one view, that the winner is a property of the problem.
+   * @returns {{id, title, problem, x0, y0, F2, fyD, values: {taylor, rk2, heun}, smallest, best}[]}
+   */
+  function constantsOverview() {
+    return winners().map((w) => {
+      let c;
+      try {
+        c = analysis.localErrorConstants(w.problem, w.problem.x0, w.problem.y0);
+      } catch (err) {
+        return null;
+      }
+      const values = { taylor: c.taylor, rk2: c.rk2, heun: c.heun };
+      if (!SECOND.every((id) => finite(values[id]))) return null;
+      return {
+        id: w.id,
+        title: w.title,
+        problem: w.problem,
+        x0: w.problem.x0,
+        y0: w.problem.y0,
+        F2: c.F2,
+        fyD: c.fyD,
+        values,
+        smallest: SECOND.reduce((a, b) => (Math.abs(values[b]) < Math.abs(values[a]) ? b : a)),
+        best: w.bestId,
+      };
+    }).filter(Boolean);
+  }
+
   return {
-    IDS, SECOND, LABELS, DEFAULT_CASE, LEVELS, LAMBDAS, LINEAR, MAX_N,
+    IDS, SECOND, LABELS, DEFAULT_CASE, LEVELS, LAMBDAS, LINEAR, MAX_N, TAYLOR_DEGREES,
     clean, baseH, caseGroups, hOptions, defaultState, stateFor, fromQuery, toQuery,
     sameProblem, solutionSeries, errorSeries, convergenceStudy, slopeLines, workPrecision,
-    linearDemo, summaryMatrix, conclusions, localConstants,
+    linearDemo, stabilityScan, summaryMatrix, orderTable, costTable, taylorDegrees,
+    winners, noUniversalWinner, taylorFarthest, conclusions, localConstants, constantsOverview,
   };
 }));

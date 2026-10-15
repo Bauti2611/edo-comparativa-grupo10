@@ -14,6 +14,8 @@ const read = (...parts) => fs.readFileSync(path.join(WEB_ROOT, ...parts), 'utf8'
 const config = require(path.join(WEB_ROOT, 'js', 'config.js'));
 const prefs = require(path.join(WEB_ROOT, 'js', 'ui', 'prefs.js'));
 const route = require(path.join(WEB_ROOT, 'js', 'ui', 'route.js'));
+const problems = require(path.join(WEB_ROOT, 'js', 'numerics', 'problems.js'));
+const methods = require(path.join(WEB_ROOT, 'js', 'numerics', 'methods.js'));
 
 const WEEKDAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -47,9 +49,13 @@ describe('EDO.config', () => {
     assert.equal(config.group.dateLabel, `${weekday} ${day} de ${MONTHS[month - 1]} de ${year}`);
   });
 
-  it('lists members as plain names, and never invents any', () => {
-    // Empty until the group provides the names; when filled in, each entry must be a clean, non-empty string.
-    assert.ok(Array.isArray(config.members));
+  it('lists the four members of the group, in the order they expose', () => {
+    assert.deepEqual([...config.members], [
+      'Bautista Biscayart',
+      'Santino Maya',
+      'Milagros Belén Olivera',
+      'Zoe Ramljak',
+    ]);
     config.members.forEach((name) => {
       assert.equal(typeof name, 'string');
       assert.ok(name.length > 0 && name === name.trim(), JSON.stringify(name));
@@ -76,6 +82,32 @@ describe('EDO.config', () => {
     assert.equal(typeof config.deps.fonts, 'boolean');
     assert.match(config.deps.katex, /^0\.16\.\d+$/);
     assert.match(config.deps.chart, /^4\.\d+\.\d+$/);
+    // chartjs-plugin-zoom and the Hammer.js its pinch gesture needs, both pinned to an exact version.
+    assert.match(config.deps.zoom, /^2\.\d+\.\d+$/);
+    assert.match(config.deps.hammer, /^2\.\d+\.\d+$/);
+  });
+
+  it('keeps the verification of the apunte off by default', () => {
+    assert.equal(config.apunte.mostrarVerificacion, false);
+  });
+
+  it('points every example of the apunte at a preset and a method that exist, with its published values', () => {
+    const keys = Object.keys(config.apunte.examples);
+    assert.deepEqual(keys, ['ej1', 'ej2', 'ej3', 'ej4']);
+    keys.forEach((key) => {
+      const example = config.apunte.examples[key];
+      const preset = problems.byId(example.preset);
+      assert.ok(preset, `${key}: unknown preset ${example.preset}`);
+      assert.equal(preset.group, 'amiconi', key);
+      assert.ok(methods.byId(example.method), `${key}: unknown method ${example.method}`);
+      assert.equal(example.method, preset.method, `${key}: the method is the one the apunte uses`);
+      // One published value per iteration of the example, all finite and written with at most 4 decimals.
+      assert.equal(example.published.length, preset.N, key);
+      example.published.forEach((value) => {
+        assert.ok(Number.isFinite(value), `${key}: ${value}`);
+        assert.match(String(value), /^\d+(\.\d{1,4})?$/, `${key}: ${value}`);
+      });
+    });
   });
 
   it('is frozen except for the parts that are edited or adjusted at runtime', () => {
@@ -84,6 +116,8 @@ describe('EDO.config', () => {
     assert.ok(Object.isFrozen(config.professors));
     assert.ok(Object.isFrozen(config.deps));
     assert.ok(!Object.isFrozen(config.talk));
+    // The group flips `apunte.mostrarVerificacion` in this file, and the tests flip it to check the rendered line.
+    assert.ok(!Object.isFrozen(config.apunte));
   });
 
   it('loads as a classic script (no module system) and attaches EDO.config', () => {
@@ -122,7 +156,8 @@ describe('index.html shell', () => {
     const order = [
       'js/config.js', 'js/deps.js',
       'js/numerics/expr.js', 'js/numerics/format.js', 'js/numerics/problems.js', 'js/numerics/methods.js', 'js/numerics/analysis.js',
-      'js/ui/bus.js', 'js/ui/prefs.js', 'js/ui/route.js', 'js/ui/dom.js', 'js/ui/tex.js', 'js/ui/charts.js', 'js/ui/step-diagram.js', 'js/ui/steps-model.js', 'js/ui/steps.js', 'js/ui/agenda.js', 'js/ui/app.js',
+      'js/ui/bus.js', 'js/ui/prefs.js', 'js/ui/route.js', 'js/ui/dom.js', 'js/ui/tex.js', 'js/ui/charts.js', 'js/ui/step-diagram.js',
+      'js/ui/steps-model.js', 'js/ui/steps.js', 'js/ui/agenda.js', 'js/ui/app.js',
     ];
     assert.deepEqual(scripts.slice(0, order.length), order);
     const pages = scripts.slice(order.length, -1);
@@ -130,7 +165,7 @@ describe('index.html shell', () => {
     assert.equal(scripts[scripts.length - 1], 'js/ui/start.js');
   });
 
-  it('loads the stylesheets as tokens, base, components, pages', () => {
+  it('loads the stylesheets as tokens, base, components and pages', () => {
     assert.deepEqual(styles, ['css/tokens.css', 'css/base.css', 'css/components.css', 'css/pages.css']);
   });
 

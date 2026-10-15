@@ -1,11 +1,16 @@
 /**
- * Sections 8 to 10 of the Teoría page: the cátedra's recipe with one worked first iteration per method (the
- * apunte's layout, in `.step-block`s that follow the display setting), the comparison summary and the glossary.
+ * The cátedra's recipe and the glossary. The Receta is the second section of the page, right after the PVI,
+ * because it is what the group needs if it is asked to solve an exercise at the board: it states, per method,
+ * the Ordenada Genérica, the order in which the operations are done by hand, and one worked first iteration in
+ * the apunte's own layout (`.step-block`s that follow the display setting).
  *
  * The first iterations come from EDO.theory.data.firstStep(mode); the end values from EDO.methods. The blocks are
  * rebuilt when the display mode changes (`env.onDisplay`): the apunte truncates to 4 decimals, the computation is
  * always full precision. Each section is `{id, title, toc, build(env)}`; see sections-a.js for the shape of `env`
  * (here also `env.methods`, `env.uid`, `env.displayMode`, `env.setDisplayMode`, `env.onDisplay`, `env.hydrate`).
+ *
+ * The comparative summary that used to close this file (the four methods side by side and the «¿Cuál elegir?»
+ * guide) lives on the Comparativa page: the decision guide exists in exactly one place.
  *
  * Load order: after sections-b.js, before theory.js. Also `require`-able in Node.
  */
@@ -31,7 +36,7 @@
   };
 
   /* ======================================================================================================
-     8. Receta para resolver a mano
+     Receta para resolver a mano
      ====================================================================================================== */
 
   function buildReceta(env) {
@@ -39,7 +44,7 @@
       h, kit, data, methods, format,
     } = env;
     const {
-      section, prose, im, formula, methodChip, goto,
+      section, prose, im, formula, methodChip, link,
     } = kit;
     const ex = data.example();
     const xf = ex.xf;
@@ -48,7 +53,33 @@
     ['taylor', 'heun', 'rk2'].forEach((id) => { finals[id] = methods.solve(id, ex).ys[ex.N]; });
     const sample = finals.taylor;
 
-    /** One `.step-block`: the first iteration of a method, then the end of the exercise. */
+    /**
+     * The order of the operations of one iteration of each method, by hand. This is the part the group applies
+     * at the board, so it sits next to the Ordenada Genérica instead of inside each method's own section.
+     */
+    const operations = {
+      taylor: () => [
+        h('li', null, 'Derivar ', im('f'), ' una sola vez, antes de iterar: ', im(T`f_x = \partial f/\partial x`), ', ',
+          im(T`f_y = \partial f/\partial y`), ' y ', im(T`y'' = f_x + f_y\,f`), '.'),
+        h('li', null, 'Evaluar la pendiente: ', im("y_n' = f(x_n, y_n)"), '.'),
+        h('li', null, 'Evaluar la curvatura: ', im("y_n''"), ' en ', im('(x_n, y_n)'), '.'),
+        h('li', null, 'Reemplazar ', im('y_n'), ', ', im("y_n'"), ' y ', im("y_n''"), ' en la Ordenada Genérica y anotar ', im('y_{n+1}'), '.'),
+      ],
+      heun: () => [
+        h('li', null, 'Pendiente al inicio: ', im("y_n' = f(x_n, y_n)"), '.'),
+        h('li', null, 'Predictor (un paso de Euler): ', im(T`\tilde{y}_{n+1} = y_n + h\,y_n'`), '.'),
+        h('li', null, 'Pendiente al final, en el punto predicho: ', im(T`f(x_{n+1}, \tilde{y}_{n+1})`), '.'),
+        h('li', null, 'Corrector: ', im(T`y_{n+1} = y_n + \frac{h}{2}\bigl[\,y_n' + f(x_{n+1}, \tilde{y}_{n+1})\,\bigr]`), '.'),
+      ],
+      rk2: () => [
+        h('li', null, 'Calcular ', im(T`k_1 = h\,f(x_n, y_n)`), ' (el incremento de Euler, con el factor ', im('h'), ' incluido).'),
+        h('li', null, 'Armar el punto medio: ', im('x_n + h/2'), ' y ', im('y_n + k_1/2'), '.'),
+        h('li', null, 'Evaluar ', im('f'), ' en el punto medio y multiplicar por ', im('h'), ': ',
+          im(T`y_{n+1} = y_n + h\,f\bigl(x_n + h/2,\ y_n + k_1/2\bigr)`), '.'),
+      ],
+    };
+
+    /** One `.step-block`: the Ordenada Genérica of a method, how it is applied, and its first iteration. */
     function stepBlock(entry, mode, withReading) {
       const fmt = (v) => format.num(v, { decimals: 4, mode });
       const x1 = fmt(ex.x0 + ex.h);
@@ -59,14 +90,15 @@
         h('div', { class: 'step-block__body' },
           h('p', null, `Por ${BY[entry.id]}, la Ordenada Genérica ${im('y_{n+1}')} del problema es:`),
           formula(entry.generic, { hl: true }),
+          h('p', { class: 'step-block__note' }, 'Orden de las operaciones de cada iteración:'),
+          h('ol', { class: 'theory-recipe theory-recipe--ops' }, ...operations[entry.id]()),
           entry.parts.map((part) => [h('p', null, part.say), part.tex ? formula(part.tex) : null]),
           h('p', null, h('mark', { class: 'hl' }, im(entry.y1TeX))),
           withReading
             ? h('p', { class: 'step-block__note' }, `Esto se lee así: el valor de ${im('y_1')} es igual al valor de ${im('y')} evaluado en el punto ${im('x_1')}, y como ${im('x_1 = x_0 + h')} entonces ${im(`x_1 = ${fmt(ex.x0)} + ${fmt(ex.h)} = ${x1}`)}.`)
             : null,
-          h('p', null, `Las iteraciones ${im('n = 1')} y ${im(`n = ${ex.N - 1}`)} repiten el procedimiento con los valores nuevos (se resuelven en `, h('a', { href: '#/ejercicios' }, 'Ejercicios'), '). Al terminar:'),
-          h('p', null, h('mark', { class: 'hl' }, im(`y_${ex.N} = ${fmt(finals[entry.id])} = y(x_${ex.N}) = y(${fmt(xf)})`))),
-          h('p', { class: 'step-block__note' }, `Se llegó al valor de ${im('y')} correspondiente al final del intervalo: el ejercicio termina en este punto.`)));
+          h('p', null, `Las iteraciones ${im('n = 1')} y ${im(`n = ${ex.N - 1}`)} repiten el procedimiento con los valores nuevos. Al terminar:`),
+          h('p', null, h('mark', { class: 'hl' }, im(`y_${ex.N} = ${fmt(finals[entry.id])} = y(x_${ex.N}) = y(${fmt(xf)})`)))));
     }
 
     const host = h('div', { class: 'theory-steps' });
@@ -103,7 +135,7 @@
 
     return section('receta', 'Receta para resolver a mano',
       prose(
-        h('p', null, 'El apunte resuelve cada ejercicio con el mismo procedimiento. El orden de los pasos importa:'),
+        h('p', null, 'Esta es la sección operativa de la página: el procedimiento con el que el apunte resuelve cada ejercicio, y después la Ordenada Genérica de cada método con el orden de sus operaciones. El orden de los pasos importa:'),
         h('ol', { class: 'theory-recipe' },
           h('li', null, h('strong', null, 'Identificar los datos:'), ' la función ', im('f(x, y)'), ', la condición inicial ', im('x_0'), ' e ', im('y_0'), ', el Valor final ', im('x_f'), ' y el paso ', im('h'),
             `. En el ejemplo: ${im(`f = ${env.expr.toTeX(ex.fNode, { indep: 'x' })}`)}, ${im(`x_0 = ${n(ex.x0)}`)}, ${im(`y_0 = ${n(ex.y0)}`)}, ${im(`x_f = ${n(ex.xf)}`)} y ${im(`h = ${n(ex.h)}`)}.`),
@@ -115,115 +147,23 @@
           h('li', null, h('strong', null, 'Iterar'), ' para ', im(T`n = 0, 1, \dots, N-1`), '. En cada iteración se reemplazan ', im('x_n'), ' e ', im('y_n'), ' en la Ordenada Genérica, se calcula lo que pida el método (',
             im("y_n'"), ', ', im("y_n''"), ', el predictor o ', im('k_1'), ') y se obtiene ', im('y_{n+1}'), '.'),
           h('li', null, h('strong', null, 'Informar el valor pedido:'), ' al llegar a ', im('x_N = x_f'), ', ', im('y_N'), ' es la aproximación de ', im('y(x_f)'), ' y el ejercicio termina.')),
-        h('h3', null, 'Primera iteración de cada método'),
-        h('p', null, 'Las tres iteraciones siguen el formato del apunte, con el problema del ejemplo. Los valores de ', im('y_1'), ' son ',
+        h('h3', null, 'Cada método, paso a paso'),
+        h('p', null, 'Cada bloque trae la Ordenada Genérica del método, el orden en que se hacen sus operaciones y la primera iteración resuelta con el problema del ejemplo, en el formato del apunte. Los valores de ', im('y_1'), ' son ',
           `${exFirst.taylor.y1Text} (Taylor), ${exFirst.heun.y1Text} (Euler Mejorado) y ${exFirst.rk2.y1Text} (RK2): tres aproximaciones distintas de la misma cantidad, cuyo valor exacto es `,
-          im(T`y(x_1) = e^{x_1^{2}-1} \approx ${format.num(exact1, { decimals: 4 })}`), ' (verificación; el apunte no lo calcula). En ', goto('error', 'Error y orden'), ' se ve por qué difieren.')),
+          im(T`y(x_1) = e^{x_1^{2}-1} \approx ${format.num(exact1, { decimals: 4 })}`), ' (verificación; el apunte no lo calcula). Por qué difieren se mide en ',
+          link('#/comparativa/constantes', 'Comparativa: la constante del error local'), '.')),
       control,
-      host);
+      host,
+      // Said once, after the three blocks, instead of three times inside them.
+      prose(
+        h('p', null, 'En los tres casos se llegó al valor de ', im('y'), ' correspondiente al final del intervalo, ',
+          im(`y(${n(xf)})`), ': el ejercicio termina en ese punto. Las iteraciones intermedias de cada método están resueltas en ',
+          h('a', { href: '#/ejercicios' }, 'Ejercicios'), ', y la comparación de los tres resultados contra el valor exacto, en la ',
+          link('#/comparativa', 'Comparativa'), '.')));
   }
 
   /* ======================================================================================================
-     9. Resumen comparativo
-     ====================================================================================================== */
-
-  function buildResumen(env) {
-    const {
-      h, kit, data, expr, format,
-    } = env;
-    const {
-      section, prose, im, extensionWide, table, methodChip, fixed, goto, badge,
-    } = kit;
-    const first = data.firstStep('trunc');
-    const orders = data.orders();
-    const costs = data.costs();
-    /** Short chip ("Taylor", "RK2"): these tables are wide and must fit the reading column. */
-    const short = (id) => methodChip(id);
-
-    /** The Ordenada Genérica for a table cell: the formula, with a trailing definition (the k1 of RK2) on a second line. */
-    const AND = T`, \qquad `;
-    const genericCell = (tex) => {
-      const cut = tex.indexOf(AND);
-      return cut < 0 ? im(tex) : [im(tex.slice(0, cut)), h('br'), 'con ', im(tex.slice(cut + AND.length))];
-    };
-
-    const summaryRows = [
-      ['euler', T`y_{n+1} = y_n + h\,y_n'`, costs.euler.total, 'No', 'Ejemplo 2'],
-      ['taylor', first.taylor.generic, costs.taylor2.total, 'Sí: f_x y f_y', 'Ejemplo 1'],
-      ['heun', first.heun.generic, costs.heun.total, 'No', 'Ejemplo 3'],
-      ['rk2', first.rk2.generic, costs.rk2.total, 'No', 'Ejemplo 4'],
-    ].map(([id, tex, evals, derivs, where]) => [
-      { c: short(id), row: true },
-      { c: genericCell(tex), nowrap: true },
-      { c: im(orders[id] === 1 ? 'O(h)' : `O(h^{${orders[id]}})`), num: true },
-      { c: String(evals), num: true },
-      { c: derivs === 'No' ? 'No' : ['Sí: ', im('f_x'), ' y ', im('f_y')], wrap: true },
-      { c: where, wrap: true },
-    ]);
-
-    const cases = data.comparison();
-    const second = ['taylor', 'heun', 'rk2'];
-    const errorOf = (c, id) => Math.abs(c.values[id] - c.exact);
-    const worstOf = (c) => second.reduce((a, b) => (errorOf(c, b) > errorOf(c, a) ? b : a));
-    const countBest = (id) => cases.filter((c) => c.best === id).length;
-    const taylorWorstEverywhere = cases.every((c) => worstOf(c) === 'taylor');
-    const liveRows = cases.map((c) => {
-      const cell = (id) => {
-        const text = fixed(c.values[id], 6);
-        return { c: id === c.best ? [h('mark', { class: 'hl' }, text), h('span', { class: 'sr-only' }, ' (el más cercano de los tres de orden 2)')] : text, num: true };
-      };
-      const p = c.problem;
-      const n4 = (v) => format.num(v, { decimals: 4 });
-      return [
-        { c: [im(`y' = ${expr.toTeX(p.fNode, { indep: 'x' })}`), ', ', im(`y(${n4(p.x0)}) = ${n4(p.y0)}`), ', ', im(`x_f = ${n4(c.xf)}`)], row: true, wrap: true },
-        { c: fixed(c.values.euler, 6), num: true },
-        cell('taylor'),
-        cell('heun'),
-        cell('rk2'),
-        { c: fixed(c.exact, 6), num: true },
-        { c: short(c.best) },
-      ];
-    });
-    const pluralCases = (count) => (count === 1 ? 'en 1 de los' : `en ${count} de los`);
-
-    return section('resumen', 'Resumen comparativo',
-      prose(
-        h('p', null, 'Los cuatro métodos usan el mismo esquema: partir de ', im('(x_n, y_n)'), ' y avanzar ', im('h'), ' con una pendiente. Lo que cambia es cómo se obtiene esa pendiente.')),
-      table({
-        label: 'Comparación de Euler, Taylor de grado 2, Euler Mejorado y RK2',
-        head: ['Método', 'Ordenada Genérica', { c: 'Error global', num: true, wrap: true }, { c: 'Evaluaciones por paso', num: true, wrap: true }, '¿Hay que derivar f?', 'En el apunte'],
-        rows: summaryRows,
-      }),
-      h('p', { class: 'theory-provenance' }, badge('Ampliación'), ' Las columnas «Error global» y «Evaluaciones por paso» no figuran en el apunte, que no analiza el error ni el costo (véanse ',
-        goto('error', 'Error y orden'), ' y ', goto('costo', 'Costo computacional'), ').'),
-      extensionWide('Los cuatro métodos sobre los mismos problemas',
-        prose(
-          h('p', null, 'Cada fila es un problema: su ecuación, su condición inicial y el Valor final ', im('x_f'),
-            `. Se muestran los valores en ${im('x_f')} con ${im(`h = ${format.num(cases[0].problem.h, { decimals: 4 })}`)}, redondeados a 6 decimales, junto con la solución exacta. Está resaltado, en cada fila, el método de orden 2 más cercano al valor exacto.`)),
-        table({
-          label: 'Valor final de cada método y solución exacta en cuatro casos',
-          head: ['Problema', { c: short('euler'), num: true }, { c: short('taylor'), num: true }, { c: short('heun'), num: true }, { c: short('rk2'), num: true }, { c: 'Exacta', num: true }, 'Más cercano'],
-          rows: liveRows,
-        })),
-      prose(
-        h('h3', null, '¿Cuál elegir?'),
-        h('p', null, h('strong', null, 'No hay un ganador universal.'), ' Los tres métodos de segundo orden tienen el mismo orden de error; los distinguen el costo y la constante del error, que depende del problema.'),
-        h('ul', null,
-          h('li', null, h('strong', null, 'Euler'), ' es la base de comparación: una evaluación por paso, pero necesita pasos mucho más pequeños para igualar la precisión.'),
-          h('li', null, h('strong', null, 'Taylor de grado 2'), ' exige derivar ', im('f'), ' a mano (', im('f_x'), ' y ', im('f_y'), '). Conviene cuando esas derivadas son simples o cuando se quiere el desarrollo explícito. Tener el mismo orden no lo hace más preciso',
-            taylorWorstEverywhere ? `: en los ${cases.length} casos de la tabla fue el de mayor error de los tres.` : '.'),
-          h('li', null, h('strong', null, 'Euler Mejorado'), ' y ', h('strong', null, 'RK2'), ' solo evalúan ', im('f'), ', dos veces por paso. Cuál resulta más preciso depende del problema: en la tabla, Euler Mejorado quedó más cerca ',
-            `${pluralCases(countBest('heun'))} ${cases.length} casos y RK2 ${pluralCases(countBest('rk2'))} ${cases.length} (dos de los casos son el mismo problema con distinto extremo).`)),
-        h('p', null, 'La elección práctica depende de si se pueden derivar ', im('f_x'), ' y ', im('f_y'), ' con facilidad, de cuánto cuesta evaluar ', im('f'), ' y de la precisión que se pide.'),
-        h('p', { class: 'theory-lead-in' }, 'El diagrama reúne los tres métodos de orden 2 sobre el mismo paso: al variar ', im('h'), ' se ve dónde cae cada uno respecto del valor exacto.')),
-      env.diagram({ methods: 'all' }, 'Diagrama de un paso con los tres métodos'),
-      prose(
-        h('p', null, 'Para seguir: los ', h('a', { href: '#/ejercicios' }, 'ejercicios resueltos'), ' paso a paso, el ', h('a', { href: '#/simulador' }, 'simulador'), ' con funciones propias y la ',
-          h('a', { href: '#/comparativa' }, 'comparativa'), ' completa (convergencia y costo). Los términos de esta página están en el ', goto('glosario', 'glosario'), '.')));
-  }
-
-  /* ======================================================================================================
-     10. Glosario
+     Glosario
      ====================================================================================================== */
 
   function buildGlosario(env) {
@@ -263,9 +203,6 @@
   return [
     {
       id: 'receta', title: 'Receta para resolver a mano', toc: 'Receta para resolver a mano', build: buildReceta,
-    },
-    {
-      id: 'resumen', title: 'Resumen comparativo', toc: 'Resumen comparativo', build: buildResumen,
     },
     {
       id: 'glosario', title: 'Glosario', toc: 'Glosario', build: buildGlosario,

@@ -599,12 +599,12 @@ const splitMath = (() => {
   return sandbox.EDO.tex.splitMath;
 })();
 
-describe('the ten sections of the page', () => {
+describe('the seven sections of the page', () => {
   const built = buildAll('trunc');
   const byId = new Map(built.elements.map(({ spec, el }) => [spec.id, el]));
 
-  it('are the ten of the document, in reading order, each a <section id="teoria-<slug>"> with its title', () => {
-    assert.deepEqual(built.elements.map((x) => x.spec.id), ['pvi', 'taylor', 'heun', 'rk2', 'familia', 'error', 'costo', 'receta', 'resumen', 'glosario']);
+  it('are the seven of the recap, in reading order, each a <section id="teoria-<slug>"> with its title', () => {
+    assert.deepEqual(built.elements.map((x) => x.spec.id), ['pvi', 'receta', 'taylor', 'heun', 'rk2', 'familia', 'glosario']);
     assert.deepEqual(Array.from(kitModule.SECTION_ORDER), built.elements.map((x) => x.spec.id));
     assert.equal(new Set(sections.map((s) => s.id)).size, sections.length, 'no section id is registered twice');
     built.elements.forEach(({ spec, el }) => {
@@ -618,33 +618,96 @@ describe('the ten sections of the page', () => {
     });
   });
 
-  it('keep the apunte apart from the additions: error and costo are Ampliación, the three methods carry "Del apunte"', () => {
-    assert.deepEqual(sections.filter((s) => s.extension).map((s) => s.id).sort(), ['costo', 'error']);
-    ['pvi', 'taylor', 'familia', 'error', 'costo', 'resumen'].forEach((id) => {
+  it('keep the apunte apart from the additions: no whole section is an Ampliación any more, the three methods carry "Del apunte"', () => {
+    // The two sections that were wholly beyond the apunte (error and costo) are now part of the Comparativa.
+    assert.deepEqual(sections.filter((s) => s.extension).map((s) => s.id), []);
+    ['pvi', 'taylor', 'familia'].forEach((id) => {
       const badges = elementsOf(byId.get(id), (n) => hasClass(n, 'badge')).map(joinedText);
       assert.ok(badges.includes('Ampliación'), `${id} labels what goes beyond the apunte`);
+      const extensions = elementsOf(byId.get(id), (n) => n.attrs && n.attrs['data-kind'] === 'extension');
+      assert.ok(extensions.length >= 1, id);
     });
     ['taylor', 'heun', 'rk2'].forEach((id) => {
       const badges = elementsOf(byId.get(id), (n) => hasClass(n, 'badge')).map(joinedText);
       assert.ok(badges.includes('Del apunte'), `${id} marks the Ordenada Genérica as the apunte's`);
       assert.equal(elementsOf(byId.get(id), (n) => hasClass(n, 'formula') && hasClass(n, 'hl')).length, 1, `${id} highlights one formula`);
     });
-    ['error', 'costo'].forEach((id) => {
-      const extensions = elementsOf(byId.get(id), (n) => n.attrs && n.attrs['data-kind'] === 'extension');
-      assert.ok(extensions.length >= 1, id);
+  });
+
+  it('no longer carry the comparative sections: error, costo and the comparative summary are gone', () => {
+    const ids = new Set(sections.map((s) => s.id));
+    ['error', 'costo', 'resumen'].forEach((id) => assert.ok(!ids.has(id), `${id} must not be a section of Teoría`));
+    assert.ok(!Array.from(kitModule.SECTION_ORDER).some((slug) => ['error', 'costo', 'resumen'].includes(slug)));
+    const titles = built.elements.flatMap(({ el }) => elementsOf(el, (n) => /^h[234]$/.test(n.tag)).map(joinedText));
+    ['Error y orden', 'Costo computacional', 'Resumen comparativo'].forEach((title) => {
+      assert.ok(!titles.includes(title), `"${title}" belongs to the Comparativa`);
     });
   });
 
-  it('say, below the first summary table, that its error and cost columns are not in the apunte', () => {
-    const notes = elementsOf(byId.get('resumen'), (n) => hasClass(n, 'theory-provenance')).map(joinedText);
-    assert.equal(notes.length, 1);
-    assert.match(notes[0], /Ampliación/);
-    assert.match(notes[0], /Error global/);
-    assert.match(notes[0], /Evaluaciones por paso/);
+  it('carry no decision guide: "¿Cuál elegir" lives only on the Comparativa, and Teoría links to it', () => {
+    built.elements.forEach(({ spec, el }) => {
+      assert.ok(!joinedText(el).includes('¿Cuál elegir'), `${spec.id} must not repeat the decision guide`);
+    });
+    const hrefs = built.elements.flatMap(({ el }) => elementsOf(el, (n) => n.tag === 'a').map((a) => a.attrs.href));
+    assert.ok(hrefs.some((href) => href.startsWith('#/comparativa')), 'Teoría points at the Comparativa');
   });
 
-  it('mount five "El paso" diagrams: Euler, Taylor, Euler Mejorado, RK2 and then the three together', () => {
-    assert.deepEqual(built.diagrams.map((d) => d.opts.methods), ['euler', 'taylor', 'heun', 'rk2', 'all']);
+  it('frame Euler as the baseline in the PVI section, with the halving factors the engine computes', () => {
+    const [result] = elementsOf(byId.get('pvi'), (n) => n.attrs && n.attrs['data-kind'] === 'result');
+    assert.ok(result, 'the PVI section carries a result callout');
+    const text = joinedText(result);
+    assert.match(text, /Euler no es un cuarto método: es la línea de base/);
+    assert.match(text, /predictor de Euler Mejorado/);
+    assert.match(text, /y_n \+ h\\,y_n'/);
+    assert.match(text, /k_1 = h\\,f\(x_n, y_n\)/);
+    assert.match(text, /Taylor de grado 2 es Euler más el término cuadrático/);
+    assert.match(text, /Euler es Taylor de grado 1/);
+    // "halving h divides Euler's error by 2 and the others' by 4": 2^1 and 2^2, from data.orders().
+    const orders = data.orders();
+    assert.deepEqual([orders.euler, orders.taylor], [1, 2]);
+    assert.ok(text.includes(`por unas ${2 ** orders.euler} veces`), text);
+    assert.ok(text.includes(`por unas ${2 ** orders.taylor}`), text);
+    // The site still has no Euler section of its own: Euler is a statement, not a topic.
+    const headings = built.elements.flatMap(({ el }) => elementsOf(el, (n) => /^h[1234]$/.test(n.tag)).map(joinedText));
+    headings.forEach((title) => assert.ok(!/^Euler\b/.test(title) || title.startsWith('Euler Mejorado'), title));
+  });
+
+  it('open each method with "Lo esencial" and keep its derivation folded (the page is a recap)', () => {
+    ['taylor', 'heun', 'rk2'].forEach((id) => {
+      const el = byId.get(id);
+      const labels = elementsOf(el, (n) => hasClass(n, 'callout__label')).map(joinedText);
+      assert.ok(labels.includes('Lo esencial'), `${id} opens with the fast path`);
+      const folds = elementsOf(el, (n) => hasClass(n, 'theory-fold'));
+      assert.ok(folds.length >= 1, `${id} folds its derivation`);
+      folds.forEach((fold) => {
+        assert.equal(fold.tag, 'details');
+        assert.ok(!fold.attrs.open, `${id}: the fold starts closed`);
+        assert.ok(joinedText(elementsOf(fold, (n) => n.tag === 'summary')[0]).length > 10, id);
+      });
+      const text = joinedText(el);
+      assert.match(text, /Qué necesita/, id);
+      assert.match(text, /Costo por paso/, id);
+      assert.match(text, /Error global/, id);
+    });
+  });
+
+  it('keep one sentence about the family, with the weights computed, and link to where it is proved', () => {
+    const text = joinedText(byId.get('familia'));
+    assert.match(text, /dos casos de una misma familia/);
+    // The weights are printed from the family parametrization, not typed in the prose.
+    assert.match(text, /a_1 = a_2 = \\frac\{1\}\{2\}/);
+    assert.match(text, /a_1 = 0/);
+    // The thesis callout and the derivation of the order conditions live on the Comparativa.
+    assert.ok(!text.includes('El punto de la comparación'), 'the comparison thesis belongs to the Comparativa');
+    const hrefs = elementsOf(byId.get('familia'), (n) => n.tag === 'a').map((a) => a.attrs.href);
+    assert.ok(hrefs.includes('#/comparativa/constantes'), hrefs.join(' '));
+    // the nomenclature stays: it is what a reader needs to read any table of the site
+    assert.match(text, /Nomenclatura/);
+    assert.match(text, /identificar cada método por su fórmula/);
+  });
+
+  it('mount four "El paso" diagrams, one per method: the one with the three together moved to the Comparativa', () => {
+    assert.deepEqual(built.diagrams.map((d) => d.opts.methods), ['euler', 'taylor', 'heun', 'rk2']);
     built.diagrams.forEach((d) => assert.ok(d.host.attrs['aria-label'].startsWith('Diagrama de un paso')));
   });
 
@@ -664,7 +727,7 @@ describe('the ten sections of the page', () => {
         });
       });
     });
-    assert.ok(formulas > 300, `only ${formulas} formulas`);
+    assert.ok(formulas > 200, `only ${formulas} formulas`);
   });
 
   it('show no invalid text (undefined, NaN, Infinity, [object ...]) anywhere', () => {
@@ -704,61 +767,57 @@ describe('the ten sections of the page', () => {
     });
   });
 
-  it('the family table lists Euler Mejorado, punto medio and Ralston with the parameters of section 5.8', () => {
-    const [table] = elementsOf(byId.get('familia'), (n) => n.tag === 'table');
-    const rows = elementsOf(table, (n) => n.tag === 'tr').slice(1);
-    const cells = rows.map((tr) => elementsOf(tr, (n) => n.tag === 'td').map(joinedText));
-    assert.deepEqual(cells, [
-      ['$\\frac{1}{2}$', '$\\frac{1}{2}$', '$1$', 'Euler Mejorado'],
-      ['$0$', '$1$', '$\\frac{1}{2}$', 'RK2 (Runge-Kutta de grado 2)'],
-      ['$\\frac{1}{3}$', '$\\frac{2}{3}$', '$\\frac{3}{4}$', 'No figura en el apunte'],
-    ]);
+  it('carry only the tables a recap needs: the eleven comparative ones moved to the Comparativa', () => {
+    const tables = built.elements.flatMap(({ spec, el }) => elementsOf(el, (n) => n.tag === 'table').map(() => spec.id));
+    assert.equal(tables.length, 0, `Teoría still prints a table in ${tables.join(', ')}`);
   });
 
-  it('the error section shows the constants 10/3, 7/3, 4/3, the F2 coefficients and the interval [-2, 0]', () => {
-    const text = joinedText(byId.get('error'));
-    assert.ok(text.includes('\\frac{10}{3} \\approx 3.3333'));
-    assert.ok(text.includes('\\frac{7}{3} \\approx 2.3333'));
-    assert.ok(text.includes('\\frac{4}{3} \\approx 1.3333'));
-    assert.ok(text.includes('-\\frac{1}{12}\\,F_2') && text.includes('\\frac{1}{24}\\,F_2'));
-    assert.ok(text.includes('[-2, 0]'));
-    assert.ok(text.includes('3.678e-3') && text.includes('2.678e-3') && text.includes('1.678e-3'));
-  });
-
-  it('the cost section counts 1, 2, 2 evaluations and 3, 6, 10 for Taylor', () => {
-    const [table] = elementsOf(byId.get('costo'), (n) => n.tag === 'table');
-    const totals = elementsOf(table, (n) => n.tag === 'tr').slice(1).map((tr) => joinedText(elementsOf(tr, (n) => n.tag === 'td')[2]));
-    assert.deepEqual(totals, ['1', '2', '2', '3', '6', '10']);
-  });
-
-  it('the summary table gives Euler O(h) and the three others O(h^2), with 1, 3, 2, 2 evaluations and the four examples', () => {
-    const [table] = elementsOf(byId.get('resumen'), (n) => n.tag === 'table');
-    const rows = elementsOf(table, (n) => n.tag === 'tr').slice(1).map((tr) => ({
-      head: joinedText(elementsOf(tr, (n) => n.tag === 'th')[0]),
-      cells: elementsOf(tr, (n) => n.tag === 'td').map(joinedText),
-    }));
-    assert.deepEqual(rows.map((r) => r.head), ['Euler', 'Taylor', 'Euler Mejorado', 'RK2']);
-    assert.deepEqual(rows.map((r) => r.cells[1]), ['$O(h)$', '$O(h^{2})$', '$O(h^{2})$', '$O(h^{2})$']);
-    assert.deepEqual(rows.map((r) => r.cells[2]), ['1', '3', '2', '2']);
-    assert.deepEqual(rows.map((r) => r.cells[4]), ['Ejemplo 2', 'Ejemplo 1', 'Ejemplo 3', 'Ejemplo 4']);
-  });
-
-  it('the comparison table of the summary repeats section 5.6 and shows every column of the table', () => {
-    const tables = elementsOf(byId.get('resumen'), (n) => n.tag === 'table');
-    const live = tables[1];
-    const head = elementsOf(live, (n) => n.tag === 'th' && n.attrs.scope === 'col');
-    assert.equal(head.length, 7, 'Problema, four methods, Exacta, Más cercano');
-    const rows = elementsOf(live, (n) => n.tag === 'tr').slice(1);
-    assert.equal(rows.length, 4);
-    const closest = rows.map((tr) => elementsOf(tr, (n) => hasClass(n, 'method-chip')).map(joinedText).pop());
-    assert.deepEqual(closest, ['Euler Mejorado', 'Euler Mejorado', 'RK2', 'Euler Mejorado']);
-    const text = joinedText(live);
-    ['1.815360', '1.972761', '1.977951', '1.983150', '1.993716', '3.450929', '2.649143', '1.287328'].forEach((v) => assert.ok(text.includes(v), v));
+  it('keep the data module that the Comparativa now reads: the constants, the stability scan and the four cases', () => {
+    // Teoría no longer prints these, but the pure module still computes them and compare/model.js uses it.
+    const le = data.localErrors();
+    assert.deepEqual([le.F2, le.D, le.fyD], [8, 6, 12]);
+    assert.ok(data.stabilityTable().some((row) => row.z === -2));
+    assert.equal(data.comparison().length, 4);
   });
 });
 
 describe('the Receta and its display setting', () => {
   const marks = (host) => elementsOf(host, (n) => n.tag === 'mark').map(joinedText);
+
+  it('comes second, right after the PVI and before every method section', () => {
+    const order = Array.from(kitModule.SECTION_ORDER);
+    assert.equal(order[1], 'receta');
+    ['taylor', 'heun', 'rk2'].forEach((id) => {
+      assert.ok(order.indexOf('receta') < order.indexOf(id), `receta must come before ${id}`);
+    });
+    assert.ok(order.indexOf('pvi') < order.indexOf('receta'));
+  });
+
+  it('states, per method, the Ordenada Genérica and the order of the operations to apply it by hand', () => {
+    const { elements } = buildAll('trunc');
+    const receta = elements.find((x) => x.spec.id === 'receta').el;
+    const blocks = elementsOf(receta, (n) => n.tag === 'article');
+    assert.deepEqual(blocks.map((b) => b.attrs['data-method']), ['taylor', 'heun', 'rk2']);
+    const generics = data.firstStep('trunc');
+    blocks.forEach((block) => {
+      const id = block.attrs['data-method'];
+      // the Ordenada Genérica, highlighted as the apunte highlights it
+      const [highlighted] = elementsOf(block, (n) => hasClass(n, 'formula') && hasClass(n, 'hl'));
+      assert.ok(highlighted, `${id} prints its Ordenada Genérica`);
+      assert.equal(joinedText(highlighted), `$$${generics[id].generic}$$`);
+      // and the ordered list of the operations of one iteration
+      const [ops] = elementsOf(block, (n) => n.tag === 'ol' && hasClass(n, 'theory-recipe--ops'));
+      assert.ok(ops, `${id} lists the order of its operations`);
+      assert.ok(elementsOf(ops, (n) => n.tag === 'li').length >= 3, `${id} has at least three operations`);
+    });
+    const text = joinedText(receta);
+    assert.match(text, /Orden de las operaciones de cada iteración/);
+    // each method's own operations, not a generic recipe repeated three times
+    assert.match(text, /Pendiente al inicio/);
+    assert.match(text, /Predictor \(un paso de Euler\)/);
+    assert.match(text, /Armar el punto medio/);
+    assert.match(text, /Derivar \$f\$ una sola vez, antes de iterar/);
+  });
 
   it('writes y1 and y3 of each method truncated to 4 decimals, as the apunte does (1.9727, 1.9831, 1.9779)', () => {
     const { elements } = buildAll('trunc');
