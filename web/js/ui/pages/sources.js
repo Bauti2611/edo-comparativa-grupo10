@@ -1,10 +1,9 @@
 /**
- * Page 'fuentes': the course documents (cited verbatim), reference books to widen the topic, software and
- * licences, how the numbers were verified, scope and criteria, and the delivered version.
+ * Page 'fuentes': the course documents (cited verbatim), software and licences, how the numbers were verified,
+ * scope and criteria, and the delivered version.
  *
  * Nothing here is invented: the quoted strings are the ones printed in the course PDFs (odd/tasks/
- * edo-web-comparativa.md, section 5.9), the books carry no edition or page numbers (the group must verify them
- * before citing), the versions and the date come from EDO.config, and the members are listed only when
+ * edo-web-comparativa.md, section 5.9), the versions and the date come from EDO.config, and the members are listed only when
  * `EDO.config.members` has names in it. Sections have the ids `fuentes-<name>` so that `#/fuentes/<name>` scrolls to them.
  */
 (function (root) {
@@ -39,12 +38,14 @@
 
   const SECTIONS = Object.freeze([
     ['catedra', 'Fuentes de la cátedra'],
-    ['libros', 'Para ampliar'],
     ['software', 'Software y licencias'],
     ['verificacion', 'Cómo se verificó'],
     ['alcance', 'Alcance y criterios'],
     ['version', 'Versión'],
   ]);
+
+  /** Title of a section by its id. */
+  const titleOf = (id) => SECTIONS.find((entry) => entry[0] === id)[1];
 
   const section = (id, title, ...content) => h('section', {
     id: `fuentes-${id}`, class: 'sources-section', 'aria-labelledby': `fuentes-${id}-title`,
@@ -55,7 +56,7 @@
   /* ---- Sections ------------------------------------------------------------------------------------ */
 
   function courseSources() {
-    return section('catedra', SECTIONS[0][1],
+    return section('catedra', titleOf('catedra'),
       h('div', { class: 'prose' },
         h('p', null, 'Los métodos, la notación y los ejemplos de este sitio siguen tres documentos de las cátedras. Se citan tal como figuran en ellos.')),
       h('div', { class: 'callout', 'data-kind': 'note' },
@@ -71,25 +72,12 @@
       h('p', { class: 'muted' }, 'Los documentos no llevan fecha impresa. El encabezado de la práctica de problemas de valor inicial omite «Análisis Numérico».'));
   }
 
-  function books() {
-    return section('libros', SECTIONS[1][1],
-      h('div', { class: 'prose' },
-        h('p', null, 'Los documentos de la cátedra no nombran un libro de texto. Para ampliar el tema se sugieren estas referencias:'),
-        list([
-          [h('strong', null, 'Burden y Faires'), ', ', h('em', null, 'Numerical Analysis'), '. Capítulo sobre problemas de valor inicial para ecuaciones diferenciales ordinarias (métodos de Taylor, Runge-Kutta, Euler modificado y punto medio).'],
-          [h('strong', null, 'Chapra y Canale'), ', ', h('em', null, 'Métodos numéricos para ingenieros'), '. Parte sobre ecuaciones diferenciales ordinarias (Euler, Heun, punto medio y Runge-Kutta).'],
-        ])),
-      h('div', { class: 'callout', 'data-kind': 'warning' },
-        h('p', { class: 'callout__label' }, 'Referencias sin verificar'),
-        h('p', null, 'Pendiente: verificar edición y capítulo antes de citar. Por eso no se indican ediciones ni números de página.')));
-  }
-
   function software() {
     const deps = cfg.deps;
     const where = deps.vendored
       ? 'desde copias locales de la carpeta vendor o, si faltan, desde la red de distribución jsDelivr'
       : 'desde la red de distribución jsDelivr';
-    return section('software', SECTIONS[2][1],
+    return section('software', titleOf('software'),
       h('div', { class: 'prose' },
         list([
           [h('strong', null, 'KaTeX'), ' ', h('span', { class: 'num' }, deps.katex), ' · licencia MIT. Muestra las fórmulas.'],
@@ -103,7 +91,7 @@
   }
 
   function verification() {
-    return section('verificacion', SECTIONS[3][1],
+    return section('verificacion', titleOf('verificacion'),
       h('div', { class: 'prose' },
         h('p', null, 'Los números del sitio salen de un único motor de cálculo, que se comprobó de cuatro maneras:'),
         list([
@@ -115,7 +103,7 @@
   }
 
   function scope() {
-    return section('alcance', SECTIONS[4][1],
+    return section('alcance', titleOf('alcance'),
       h('div', { class: 'prose' },
         list([
           [h('strong', null, 'Nomenclatura.'), ' Euler Mejorado es el método de Heun (trapecio con predictor de Euler) y RK2 es Runge-Kutta de grado 2 en su forma de punto medio, como los define el apunte. La nomenclatura varía de un libro a otro (por ejemplo, «Euler modificado» o «polígono mejorado»): aquí se sigue la del apunte.'],
@@ -128,7 +116,7 @@
 
   function version(app) {
     const members = Array.isArray(cfg.members) ? cfg.members.filter(Boolean) : [];
-    return section('version', SECTIONS[5][1],
+    return section('version', titleOf('version'),
       h('div', { class: 'prose' },
         h('p', null, h('strong', { class: 'num' }, `Versión ${cfg.version}`), ` · ${app.formatDateEs(cfg.buildDate)}`),
         h('p', null, 'La versión que se presenta es la versión entregada: el contenido que se expone es el mismo que se envió previamente.'),
@@ -144,7 +132,7 @@
         h('p', { class: 'lead' }, 'Fuentes consultadas, software utilizado y verificaciones realizadas.'),
         h('nav', { 'aria-label': 'En esta página', class: 'sources__toc' },
           h('ul', { class: 'cluster', role: 'list' }, SECTIONS.map(([id, label]) => h('li', null, h('a', { href: `#/fuentes/${id}` }, label)))))),
-      courseSources(), books(), software(), verification(), scope(), version(EDO.app)));
+      courseSources(), software(), verification(), scope(), version(EDO.app)));
     EDO.tex.hydrate(page);
   }
 

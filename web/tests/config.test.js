@@ -19,7 +19,7 @@ const methods = require(path.join(WEB_ROOT, 'js', 'numerics', 'methods.js'));
 
 const WEEKDAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-const NAV_PAGES = ['inicio', 'teoria', 'ejercicios', 'simulador', 'comparativa', 'audiencia', 'fuentes'];
+const NAV_PAGES = ['inicio', 'teoria', 'comparativa', 'ejercicios', 'simulador', 'audiencia', 'fuentes'];
 
 describe('EDO.config', () => {
   it('has a semantic version and a valid ISO build date', () => {
@@ -40,7 +40,7 @@ describe('EDO.config', () => {
       dateLabel: 'Lunes 19 de octubre de 2026',
       slot: 6,
     });
-    assert.deepEqual([...config.professors], ['Ing. Diego Amiconi', 'Germán Céspedes']);
+    assert.deepEqual([...config.professors], ['Germán Céspedes']);
   });
 
   it('keeps dateLabel consistent with dateISO (weekday, day and month)', () => {
@@ -60,21 +60,6 @@ describe('EDO.config', () => {
       assert.equal(typeof name, 'string');
       assert.ok(name.length > 0 && name === name.trim(), JSON.stringify(name));
     });
-  });
-
-  it('has an editable talk length and an agenda whose shares add up to 1', () => {
-    assert.ok(Number.isInteger(config.talk.minutes) && config.talk.minutes > 0);
-    const ids = config.talk.agenda.map((item) => item.id);
-    assert.deepEqual(ids, ['inicio', 'teoria', 'ejercicios', 'simulador', 'comparativa', 'audiencia']);
-    assert.equal(new Set(ids).size, ids.length);
-    config.talk.agenda.forEach((item) => {
-      assert.equal(typeof item.label, 'string');
-      assert.ok(item.label.length > 0);
-      assert.ok(item.share > 0 && item.share < 1, `${item.id}: ${item.share}`);
-      assert.ok(NAV_PAGES.includes(item.id), item.id);
-    });
-    const total = config.talk.agenda.reduce((sum, item) => sum + item.share, 0);
-    assert.ok(Math.abs(total - 1) < 1e-9, `shares add up to ${total}`);
   });
 
   it('pins the dependency versions the project allows', () => {
@@ -115,7 +100,6 @@ describe('EDO.config', () => {
     assert.ok(Object.isFrozen(config.group));
     assert.ok(Object.isFrozen(config.professors));
     assert.ok(Object.isFrozen(config.deps));
-    assert.ok(!Object.isFrozen(config.talk));
     // The group flips `apunte.mostrarVerificacion` in this file, and the tests flip it to check the rendered line.
     assert.ok(!Object.isFrozen(config.apunte));
   });
@@ -157,7 +141,7 @@ describe('index.html shell', () => {
       'js/config.js', 'js/deps.js',
       'js/numerics/expr.js', 'js/numerics/format.js', 'js/numerics/problems.js', 'js/numerics/methods.js', 'js/numerics/analysis.js',
       'js/ui/bus.js', 'js/ui/prefs.js', 'js/ui/route.js', 'js/ui/dom.js', 'js/ui/tex.js', 'js/ui/charts.js', 'js/ui/step-diagram.js',
-      'js/ui/steps-model.js', 'js/ui/steps.js', 'js/ui/agenda.js', 'js/ui/app.js',
+      'js/ui/steps-model.js', 'js/ui/steps.js', 'js/ui/app.js',
     ];
     assert.deepEqual(scripts.slice(0, order.length), order);
     const pages = scripts.slice(order.length, -1);
@@ -203,7 +187,7 @@ describe('page registry', () => {
 
   it('labels and orders the navigation as specified, and keeps the style guide out of it', () => {
     const nav = registered.filter((p) => p.label).sort((a, b) => a.order - b.order);
-    assert.deepEqual(nav.map((p) => p.label), ['Inicio', 'Teoría', 'Ejercicios', 'Simulador', 'Comparativa', 'Audiencia', 'Fuentes']);
+    assert.deepEqual(nav.map((p) => p.label), ['Inicio', 'Teoría', 'Comparativa', 'Ejercicios', 'Simulador', 'Audiencia', 'Fuentes']);
     assert.deepEqual(nav.map((p) => p.id), NAV_PAGES);
     assert.equal(registered.find((p) => p.id === '_ui').label, null);
   });

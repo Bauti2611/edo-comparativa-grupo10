@@ -3,11 +3,11 @@
 Group 10, U.T.N. Facultad Regional La Plata. Interactive web app: theory, worked exercises, a simulator and a
 comparison of the methods, all on one numerics engine. Static site: no build step, no bundler, no server.
 
-Sections: Inicio (hero "El paso" and agenda), Teoría (a recap: the recipe to solve an exercise by hand, then each
-method), Ejercicios (the four solved examples of the apunte, a comparative case and the practice bank), Simulador,
-Comparativa (the assigned topic, so it carries the whole comparison: the four methods on one problem, order of
-convergence, the constant of the local error, cost and precision, the linear case and the summary with the only
-"¿Cuál elegir?" guide of the site), Audiencia (quiz, prediction game, one step by hand) and Fuentes.
+Sections: Inicio (the assigned question, the PVI that threads the site and the hero "El paso"), Teoría (a recap: the recipe to solve an exercise by hand, then each
+method), Comparativa (the assigned topic, so it carries the whole comparison: the four methods on one problem, order
+of convergence, the constant of the local error, cost and precision, the linear case and the summary with the only
+"¿Cuál elegir?" guide of the site), Ejercicios (the four solved examples of the apunte, a comparative case and the
+practice bank), Simulador, Audiencia (quiz, prediction game, one step by hand) and Fuentes.
 
 ## Open it
 
@@ -62,7 +62,7 @@ web/
     components.css      shell + every shared component (.card, .callout, .hl, .formula, .step-block, ...)
     pages.css           page-level layout, one delimited block per page
   js/
-    config.js           EDO.config: group data, version/date, talk agenda, dependency switches
+    config.js           EDO.config: group data, version/date, dependency switches
     deps.js             EDO.deps: KaTeX / Chart.js / zoom plugin / web font loader, with fallback and ?nocdn=1
     numerics/           expr, format, problems, methods, analysis (pure logic, T2)
     ui/
@@ -72,7 +72,6 @@ web/
       charts.js         Chart.js wrapper with a data-table fallback and method styles
       step-diagram.js   "El paso": one step drawn three ways on a slope field, zoomable (Inicio, Teoría, Comparativa)
       steps-model.js steps.js    step-by-step solutions in the cátedra's layout
-      agenda.js         time budget of the talk per section (Inicio)
       app.js            router, page registry, theme, projection mode, nav bar, shortcuts, help
       pages/            one file per section (home, theory, exercises, simulator, compare, audience, sources)
                         plus styleguide.js (#/_ui); a folder with the same name holds that page's modules
@@ -99,7 +98,6 @@ Everything editable lives in `js/config.js`. Run `node --test web/tests/` afterw
 | --- | --- |
 | `version`, `buildDate` | Semantic version and ISO date shown in the footer and in Fuentes. |
 | `members` | The names listed on Inicio and in Fuentes. Nothing is rendered while the array is empty. |
-| `talk.minutes` | Length of the exposition; the agenda of Inicio recomputes every part from it. |
 | `apunte.mostrarVerificacion` | `false` by default; see below. |
 | `deps.vendored` | `true` only after vendoring KaTeX, Chart.js and the zoom plugin (see the last section). |
 

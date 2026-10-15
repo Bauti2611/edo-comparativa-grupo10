@@ -5,7 +5,6 @@
  *   theme        'auto' | 'light' | 'dark'                    default 'auto'
  *   mode         'normal' | 'projection'                       default 'normal'
  *   display      {decimals: 0..12, mode: 'round' | 'trunc'}    default {decimals: 4, mode: 'round'}
- *   talkMinutes  integer 1..240 | null (null = use config)     default null
  *
  * Storage: one JSON object under STORAGE_KEY in localStorage (the inline script in index.html reads
  * the same key before the first paint, keep both in sync). Every storage access is wrapped in
@@ -36,7 +35,6 @@
     theme: 'auto',
     mode: 'normal',
     display: Object.freeze({ decimals: 4, mode: 'round' }),
-    talkMinutes: null,
   });
 
   const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -51,11 +49,6 @@
       const decimals = Number.isInteger(v.decimals) ? clamp(v.decimals, 0, 12) : DEFAULTS.display.decimals;
       const mode = v.mode === 'trunc' || v.mode === 'round' ? v.mode : DEFAULTS.display.mode;
       return { decimals, mode };
-    },
-    talkMinutes: (v) => {
-      if (v === null) return null;
-      if (typeof v !== 'number' || !Number.isFinite(v)) return undefined;
-      return clamp(Math.round(v), 1, 240);
     },
   };
 

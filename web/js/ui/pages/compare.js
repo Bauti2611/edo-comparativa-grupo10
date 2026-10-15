@@ -723,7 +723,7 @@
 
   EDO.app.registerPage('comparativa', {
     title: 'Comparativa',
-    nav: { label: 'Comparativa', order: 50 },
+    nav: { label: 'Comparativa', order: 30 },
     render,
   });
 }(typeof window !== 'undefined' ? window : this));

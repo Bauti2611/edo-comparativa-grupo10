@@ -1096,12 +1096,10 @@ describe('Fuentes page: the course strings are verbatim (section 5.9 of the ODD 
     assert.ok(!/C[ée]spedes/.test(text));
   });
 
-  it('flags the reference books for verification, with no edition or page number', () => {
-    assert.ok(text.includes('verificar edición y capítulo antes de citar'));
-    assert.ok(text.includes('Burden y Faires') && text.includes('Numerical Analysis'));
-    assert.ok(text.includes('Chapra y Canale') && text.includes('Métodos numéricos para ingenieros'));
+  it('cites only the course documents: no textbook that the group did not consult, and no pending note', () => {
+    assert.ok(!/Burden|Chapra|Numerical Analysis|Para ampliar/.test(text));
+    assert.ok(!/sin verificar|Pendiente/.test(text));
     assert.ok(!/\b(19|20)\d\d\b/.test(code(text)), 'no year (and so no invented edition) in the page code');
-    assert.ok(!/\bp\.\s*\d|\bpp\.\s*\d|\bpágina\s+\d/i.test(text));
   });
 
   it('takes the versions and the date from EDO.config and lists members only when there are any', () => {
