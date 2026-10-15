@@ -638,4 +638,12 @@ describe('the comparison lives on one page', () => {
     assert.match(compare, /Vista completa/);
     assert.match(compare, /solutionZoomWindow/);
   });
+
+  it('provides zoom buttons to magnify second-order methods in the convergence chart', () => {
+    const compare = read('js', 'ui', 'pages', 'compare.js');
+    assert.match(compare, /id:\s*'cmp-btn-conv-zoom-in'/);
+    assert.match(compare, /id:\s*'cmp-btn-conv-zoom-out'/);
+    assert.match(compare, /Ampliar métodos de orden 2 \(separar curvas\)/);
+    assert.match(compare, /convergenceZoomWindow/);
+  });
 });

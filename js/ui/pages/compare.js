@@ -45,8 +45,33 @@
     let solutionZoomed = false;
     let zoomInBtn = null;
     let zoomOutBtn = null;
+    let convZoomed = false;
+    let convZoomInBtn = null;
+    let convZoomOutBtn = null;
     const charts = {};
     const refs = {};
+
+    function convergenceZoomWindow(std) {
+      if (!std || !std.errors) return null;
+      const secondErrors = [];
+      ['taylor', 'heun', 'rk2'].forEach((id) => {
+        (std.errors[id] || []).forEach((e) => {
+          if (Number.isFinite(e) && e > 0) secondErrors.push(e);
+        });
+      });
+      if (!secondErrors.length) return null;
+      const minVal = Math.min(...secondErrors);
+      const maxVal = Math.max(...secondErrors);
+      const hs = (std.hs || []).filter((h) => Number.isFinite(h) && h > 0);
+      const hMin = Math.min(...hs);
+      const hMax = Math.max(...hs);
+      return {
+        xMin: hMin * 0.75,
+        xMax: hMax * 1.35,
+        yMin: minVal * 0.5,
+        yMax: maxVal * 1.4,
+      };
+    }
 
     function solutionZoomWindow(res) {
       if (!res || !res.problem) return null;
@@ -152,6 +177,7 @@
 
     function pickCase(id) {
       solutionZoomed = false;
+      convZoomed = false;
       state = M.stateFor(id, NaN);
       buildHControl();
       updateAll();
@@ -279,7 +305,25 @@
       M.slopeLines(study).forEach((line) => sets.push(EDO.charts.dataset('exact', line.label, line.points, {
         segment: { borderDash: () => (line.p === 1 ? [8, 5] : [2, 4]) },
       })));
-      lineChart('convergence', 'Error en el punto final según el paso h (escala log-log)', sets, axes('h', 'Error en el punto final', 'logarithmic', 'logarithmic'));
+      const convAxes = axes('h', 'Error en el punto final', 'logarithmic', 'logarithmic');
+      if (convZoomed) {
+        const zw = convergenceZoomWindow(study);
+        if (zw) {
+          convAxes.scales.x.min = zw.xMin;
+          convAxes.scales.x.max = zw.xMax;
+          convAxes.scales.y.min = zw.yMin;
+          convAxes.scales.y.max = zw.yMax;
+        }
+      } else {
+        convAxes.scales.x.min = undefined;
+        convAxes.scales.x.max = undefined;
+        convAxes.scales.y.min = undefined;
+        convAxes.scales.y.max = undefined;
+      }
+      if (convZoomInBtn) convZoomInBtn.setAttribute('aria-pressed', convZoomed ? 'true' : 'false');
+      if (convZoomOutBtn) convZoomOutBtn.setAttribute('aria-pressed', convZoomed ? 'false' : 'true');
+
+      lineChart('convergence', 'Error en el punto final según el paso h (escala log-log)', sets, convAxes);
       refs.errors.replaceChildren(V.convergenceTable(h, kit, study));
       refs.orders.replaceChildren(V.ordersTable(h, kit, study));
 
@@ -442,6 +486,30 @@
         'Amplía el extremo final para separar visualmente Taylor, Heun y RK2.')
     );
 
+    convZoomInBtn = h('button', {
+      type: 'button', class: 'btn', 'data-size': 'sm', id: 'cmp-btn-conv-zoom-in', 'data-zoom': 'in',
+      'aria-pressed': convZoomed ? 'true' : 'false',
+      onclick: () => {
+        convZoomed = true;
+        paintStudy();
+      },
+    }, '🔍 Ampliar métodos de orden 2 (separar curvas)');
+
+    convZoomOutBtn = h('button', {
+      type: 'button', class: 'btn', 'data-size': 'sm', id: 'cmp-btn-conv-zoom-out', 'data-zoom': 'out',
+      'aria-pressed': convZoomed ? 'false' : 'true',
+      onclick: () => {
+        convZoomed = false;
+        paintStudy();
+      },
+    }, '↺ Vista completa');
+
+    const convZoomToolbar = h('div', { class: 'cluster', style: { 'margin-bottom': '0.75rem', 'align-items': 'center', 'gap': '0.5rem' } },
+      convZoomInBtn, convZoomOutBtn,
+      h('span', { class: 'muted', style: { 'font-size': 'var(--step--1)' } },
+        'Enfoca la franja de Taylor, Heun y RK2 para ver su separación sin la compresión de Euler.')
+    );
+
     page.appendChild(h('div', { class: 'cmp' },
       h('header', { class: 'cmp__head' },
         h('h1', null, 'Comparativa'),
@@ -477,6 +545,7 @@
         h('p', { class: 'cmp__note' }, 'Eso se mide: el caso se resuelve con el h del enunciado y con h/2, h/4, …, h/32. Si el error se comporta como ',
           kit.im('C\\,h^p'), ', al dividir h por 2 se divide por ', kit.im('2^p'), ', y ', kit.im('p = \\log_2\\big(e(h)/e(h/2)\\big)'),
           '. En escala log-log cada método forma una recta de pendiente p; las líneas de referencia tienen pendiente 1 y 2.'),
+        convZoomToolbar,
         h('div', { class: 'cmp__charts cmp__charts--stack' },
           figure(canvas('convergence'), 'Error en el punto final según h. Euler sigue la pendiente 1; los tres métodos de grado 2, la pendiente 2.'),
           h('div', { class: 'stack' },
