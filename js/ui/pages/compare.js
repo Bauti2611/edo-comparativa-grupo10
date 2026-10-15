@@ -237,10 +237,42 @@
       else charts[key] = EDO.charts.create(refs[key], config, { title, signal });
     }
 
-    const axes = (xTitle, yTitle, xType, yType) => ({
+    function makeZoomPlugin(xType, yType, zoomLimits) {
+      const isXLog = xType === 'logarithmic';
+      const isYLog = yType === 'logarithmic';
+      const limits = Object.assign({}, zoomLimits || {});
+      if (isXLog && !limits.x) limits.x = { min: 1e-6, max: 10 };
+      if (isYLog && !limits.y) limits.y = { min: 1e-12, max: 1e6 };
+      return {
+        zoom: {
+          wheel: { enabled: true, modifierKey: 'ctrl', speed: 0.08 },
+          drag: {
+            enabled: true,
+            backgroundColor: 'rgba(55, 70, 92, 0.12)',
+            borderColor: '#6f7c91',
+            borderWidth: 1,
+            threshold: 6,
+          },
+          pinch: { enabled: true },
+          mode: 'xy',
+        },
+        pan: {
+          enabled: true,
+          mode: 'xy',
+          modifierKey: 'ctrl',
+          threshold: 8,
+        },
+        limits,
+      };
+    }
+
+    const axes = (xTitle, yTitle, xType, yType, zoomLimits) => ({
       scales: {
         x: { type: xType || 'linear', title: { display: true, text: xTitle } },
         y: { type: yType || 'linear', title: { display: true, text: yTitle } },
+      },
+      plugins: {
+        zoom: makeZoomPlugin(xType, yType, zoomLimits),
       },
     });
 
@@ -476,6 +508,9 @@
       'aria-pressed': solutionZoomed ? 'false' : 'true',
       onclick: () => {
         solutionZoomed = false;
+        if (charts.solution && charts.solution.chart && typeof charts.solution.chart.resetZoom === 'function') {
+          charts.solution.chart.resetZoom();
+        }
         paintSame();
       },
     }, '↺ Vista completa');
@@ -483,7 +518,7 @@
     const zoomToolbar = h('div', { class: 'cluster', style: { 'margin-bottom': '0.75rem', 'align-items': 'center', 'gap': '0.5rem' } },
       zoomInBtn, zoomOutBtn,
       h('span', { class: 'muted', style: { 'font-size': 'var(--step--1)' } },
-        'Amplía el extremo final para separar visualmente Taylor, Heun y RK2.')
+        'Ctrl + rueda acerca; arrastre para seleccionar una zona. Botón para separar curvas del final.')
     );
 
     convZoomInBtn = h('button', {
@@ -500,6 +535,9 @@
       'aria-pressed': convZoomed ? 'false' : 'true',
       onclick: () => {
         convZoomed = false;
+        if (charts.convergence && charts.convergence.chart && typeof charts.convergence.chart.resetZoom === 'function') {
+          charts.convergence.chart.resetZoom();
+        }
         paintStudy();
       },
     }, '↺ Vista completa');
@@ -507,7 +545,7 @@
     const convZoomToolbar = h('div', { class: 'cluster', style: { 'margin-bottom': '0.75rem', 'align-items': 'center', 'gap': '0.5rem' } },
       convZoomInBtn, convZoomOutBtn,
       h('span', { class: 'muted', style: { 'font-size': 'var(--step--1)' } },
-        'Enfoca la franja de Taylor, Heun y RK2 para ver su separación sin la compresión de Euler.')
+        'Ctrl + rueda acerca; arrastre para seleccionar una zona. Botón para enfocar orden 2.')
     );
 
     page.appendChild(h('div', { class: 'cmp' },
