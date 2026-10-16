@@ -1,142 +1,2772 @@
-<!doctype html>
-<html lang="es" data-theme="auto" data-scheme="light" data-mode="normal">
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Taylor, Euler Mejorado y RK2 · Grupo 10</title>
-  <meta name="description" content="Comparativa de los métodos de Taylor, Euler Mejorado y RK2 para problemas de valor inicial. Grupo 10, U.T.N. Facultad Regional La Plata.">
-  <meta name="color-scheme" content="light dark">
-  <meta name="theme-color" content="#f5f7fa" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0c121d" media="(prefers-color-scheme: dark)">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M3 28C14 27 23 21 29 5' fill='none' stroke='%230f1a2b' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='9.4' cy='26.4' r='3.6' fill='%23d55e00'/%3E%3Cpath d='M19.2 17.2l3.7 6.4h-7.4z' fill='%23008c64'/%3E%3Cpath d='M26.7 7l3.6 3.6-3.6 3.6-3.6-3.6z' fill='%230072b2'/%3E%3C/svg%3E">
-
-  <!--
-    Runs before the first paint: applies the saved theme and mode (or the session-only URL overrides
-    ?theme=dark|light|auto and ?mode=projection|normal, which are never persisted) so there is no flash.
-    All storage access is guarded. Keep the storage key in sync with js/ui/prefs.js.
-  -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Métodos de Paso Simple para EDOs: Taylor, Euler Mejorado y RK2 | UTN FRLP</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+  <!-- KaTeX for exact LaTeX math typography matching original web -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="if(window.renderMath) window.renderMath();"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script>
-    (function () {
-      var root = document.documentElement;
-      var theme = 'auto';
-      var mode = 'normal';
-      try {
-        var stored = JSON.parse(window.localStorage.getItem('edo.g10.prefs.v1') || 'null');
-        if (stored) {
-          if (stored.theme === 'light' || stored.theme === 'dark' || stored.theme === 'auto') theme = stored.theme;
-          if (stored.mode === 'projection' || stored.mode === 'normal') mode = stored.mode;
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            taylor: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#2563eb',
+              600: '#1d4ed8',
+              700: '#1e40af',
+            },
+            euler: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#059669',
+              600: '#047857',
+              700: '#065f46',
+            },
+            rk2: {
+              50: '#f5f3ff',
+              100: '#ede9fe',
+              500: '#7c3aed',
+              600: '#6d28d9',
+              700: '#5b21b6',
+            }
+          }
         }
-      } catch (e) { /* storage blocked or corrupted: defaults apply */ }
-      try {
-        var pairs = window.location.search.replace(/^\?/, '').split('&');
-        for (var i = 0; i < pairs.length; i++) {
-          var pair = pairs[i].split('=');
-          var value = decodeURIComponent(pair[1] || '');
-          if (pair[0] === 'theme' && (value === 'light' || value === 'dark' || value === 'auto')) theme = value;
-          if (pair[0] === 'mode' && (value === 'projection' || value === 'normal')) mode = value;
-        }
-      } catch (e) { /* malformed query: ignore the overrides */ }
-      var dark = false;
-      try { dark = window.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { /* no matchMedia */ }
-      root.setAttribute('data-theme', theme);
-      root.setAttribute('data-mode', mode);
-      root.setAttribute('data-scheme', theme === 'dark' || (theme === 'auto' && dark) ? 'dark' : 'light');
-    })();
+      }
+    };
   </script>
+  <style>
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: #f1f5f9;
+      color: #0f172a;
+      font-size: 16px;
+      line-height: 1.65;
+      transition: font-size 0.2s ease;
+    }
+    .math-box {
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: -0.01em;
+    }
+    .math-formula-hero {
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
+      overflow-x: hidden;
+      overflow-y: hidden;
+      font-size: clamp(0.70rem, 0.82vw, 0.88rem);
+      line-height: 1.5;
+      letter-spacing: -0.025em;
+    }
+    .math-sub-list {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 1.55;
+    }
+    .apunte-highlight {
+      background-color: #fef08a;
+      padding: 0.3rem 0.75rem;
+      border-radius: 0.45rem;
+      font-weight: 700;
+      color: #1e293b;
+      border-bottom: 3px solid #eab308;
+      display: inline-block;
+    }
+    .frac {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      vertical-align: middle;
+      text-align: center;
+      font-size: 0.84em;
+      line-height: 1;
+      margin: 0 0.2rem;
+      position: relative;
+      top: -0.05em;
+    }
+    .frac > span:first-child {
+      display: block;
+      border-bottom: 1.5px solid currentColor;
+      padding: 0 0.25rem 2px 0.25rem;
+      width: 100%;
+      text-align: center;
+    }
+    .frac > span:last-child {
+      display: block;
+      padding: 2px 0.25rem 0 0.25rem;
+      width: 100%;
+      text-align: center;
+    }
 
-  <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/base.css">
-  <link rel="stylesheet" href="css/components.css">
-  <link rel="stylesheet" href="css/pages.css">
+    /* GLOBAL PRESENTATION / PROJECTION SCALING (Zoom idéntico a la web original) */
+    html.slide-mode,
+    html[data-mode="projection"] {
+      font-size: 130% !important; /* Zoom para proyector que escala tipografías, paddings y KaTeX proporcionalmente */
+    }
+    body.slide-mode {
+      background-color: #e2e8f0;
+    }
+    /* El header NUNCA debe agrandarse con el zoom de proyección: se mantiene ultra compacto para dejar 95% de la pantalla al contenido */
+    header,
+    body.slide-mode header,
+    html.slide-mode header {
+      font-size: 13px !important;
+      line-height: 1.25 !important;
+    }
+    header .header-inner,
+    body.slide-mode header .header-inner {
+      padding-top: 6px !important;
+      padding-bottom: 6px !important;
+      gap: 12px !important;
+    }
+    header .nav-tab {
+      font-size: 12px !important;
+      padding: 5px 11px !important;
+      border-radius: 8px !important;
+    }
+    header #btn-global-slide-mode {
+      font-size: 12px !important;
+      padding: 5px 12px !important;
+      border-radius: 10px !important;
+    }
+    header #global-slide-arrows {
+      padding: 3px 6px !important;
+      border-radius: 10px !important;
+    }
+    header #global-slide-arrows button {
+      padding: 3px 8px !important;
+      font-size: 11px !important;
+      border-radius: 6px !important;
+    }
+    header #global-slide-indicator {
+      font-size: 11px !important;
+      padding: 0 4px !important;
+    }
+    header h1 {
+      font-size: 13px !important;
+      line-height: 1.2 !important;
+    }
+    header .brand-icon {
+      width: 32px !important;
+      height: 32px !important;
+      font-size: 13px !important;
+      border-radius: 8px !important;
+    }
+    body.slide-mode main,
+    main {
+      max-width: 1600px;
+      padding-top: 1.5rem;
+      padding-bottom: 4rem !important;
+    }
+    .main-section {
+      padding-bottom: 4rem;
+    }
+    body.slide-mode h2 {
+      font-size: 2.35rem !important;
+      line-height: 1.2 !important;
+    }
+    body.slide-mode h3 {
+      font-size: 1.75rem !important;
+      line-height: 1.3 !important;
+    }
+    body.slide-mode h4 {
+      font-size: 1.4rem !important;
+    }
+    body.slide-mode p,
+    body.slide-mode li,
+    body.slide-mode td,
+    body.slide-mode th {
+      font-size: 1.12rem !important;
+      line-height: 1.7 !important;
+    }
+    body.slide-mode .math-box {
+      font-size: 0.90rem !important;
+    }
+    body.slide-mode .math-formula-hero,
+    .math-formula-hero {
+      font-size: 0.78rem !important;
+      padding-left: 0.25rem !important;
+      padding-right: 0.25rem !important;
+    }
+    body.slide-mode .math-sub-list {
+      font-size: 0.82rem !important;
+    }
+    body.slide-mode .apunte-highlight {
+      font-size: 1.15rem !important;
+      padding: 0.35rem 0.8rem;
+    }
+    body.slide-mode .slide-step-code {
+      font-size: clamp(0.72rem, 0.80vw, 0.86rem) !important;
+      line-height: 1.5 !important;
+    }
+    body.slide-mode .slide-step-code *:not(.katex, .katex *) {
+      font-size: inherit !important;
+      line-height: inherit !important;
+    }
+    body.slide-mode .slide-step-code .katex {
+      font-size: 1.02em !important;
+      line-height: normal !important;
+    }
+    body.slide-mode #calc-form p,
+    body.slide-mode #calc-form .calc-meta {
+      font-size: 0.82rem !important;
+      line-height: 1.35 !important;
+    }
+
+    /* KaTeX Typography & Layout Tuning */
+    .katex {
+      font-size: 1.0em;
+      text-rendering: auto;
+    }
+    .katex-display {
+      margin: 0.25em 0 !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      scrollbar-width: none;
+    }
+    .katex-display::-webkit-scrollbar {
+      display: none;
+    }
+    .scrollbar-none,
+    .slide-step-code,
+    .slide-step-code *,
+    .slide-step-code div,
+    #steps-parallel-container *,
+    #ordenada-generica-container * {
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+    }
+    .scrollbar-none::-webkit-scrollbar,
+    .slide-step-code::-webkit-scrollbar,
+    .slide-step-code *::-webkit-scrollbar,
+    .slide-step-code div::-webkit-scrollbar,
+    #steps-parallel-container *::-webkit-scrollbar,
+    #ordenada-generica-container *::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
+    .math-formula-hero .katex-display {
+      margin: 0.1em 0 !important;
+    }
+    body.slide-mode .math-formula-hero .katex {
+      font-size: 0.88em !important;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 5px;
+    }
+    /* Discreet chart actions toolbar matching main web */
+    .chart-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 0.35rem;
+      margin-bottom: 0.5rem;
+    }
+    .chart-tool-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.2rem 0.65rem;
+      font-size: 0.8125rem;
+      font-family: inherit;
+      font-weight: 500;
+      line-height: 1.35;
+      color: #334155;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      cursor: pointer;
+      opacity: 0.85;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .chart-tool-btn:hover {
+      opacity: 1;
+      color: #0f172a;
+      border-color: #94a3b8;
+      background: #f8fafc;
+    }
+    .chart-tool-btn[aria-pressed='true'] {
+      opacity: 1;
+      color: #2563eb;
+      border-color: #2563eb;
+      background: #eff6ff;
+      font-weight: 600;
+    }
+  </style>
 </head>
-<body>
-  <a class="skip-link" href="#app">Saltar al contenido</a>
+<body class="min-h-screen flex flex-col selection:bg-indigo-100 selection:text-indigo-900">
 
-  <header class="site-header" id="site-header">
-    <div class="site-header__inner container">
-      <a class="brand" href="#/inicio">
-        <!-- Mark: the three methods taking a step along the exact curve (circle: Taylor, triangle: Euler Mejorado, diamond: RK2). -->
-        <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-          <path d="M3 28C14 27 23 21 29 5" fill="none" stroke-width="1.8" stroke-linecap="round" style="stroke: var(--ink)"/>
-          <circle cx="9.4" cy="26.4" r="3.6" style="fill: var(--m-taylor)"/>
-          <path d="M19.2 17.2l3.7 6.4h-7.4z" style="fill: var(--m-heun)"/>
-          <path d="M26.7 7l3.6 3.6-3.6 3.6-3.6-3.6z" style="fill: var(--m-rk2)"/>
-        </svg>
-        <span class="brand__text">
-          <span class="brand__title">Métodos para PVI</span>
-          <span class="brand__sub">Grupo 10</span>
-        </span>
-      </a>
+  <!-- Top Presentation Header & Navigation -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
+    <div class="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="header-inner flex items-center justify-between py-2 sm:py-2.5 gap-2 sm:gap-4">
+        <!-- Brand / Cátedra -->
+        <div class="flex items-center gap-2.5 shrink-0">
+          <div class="brand-icon w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-extrabold text-sm shadow-sm shrink-0">
+            EDO
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-400 text-slate-950 border border-amber-500 font-mono">UTN FRLP · Grupo 10</span>
+              <span class="text-xs text-slate-500 font-medium hidden xl:inline">Cátedras de Modelos Numéricos y Cálculo Avanzado</span>
+            </div>
+            <h1 class="text-xs sm:text-sm font-extrabold text-slate-900 leading-tight mt-0.5">
+              Taylor (G2) · Euler Mej. · RK2
+            </h1>
+          </div>
+        </div>
 
-      <nav class="site-nav" id="site-nav" aria-label="Secciones">
-        <ul class="site-nav__list" id="nav-list" role="list"></ul>
-      </nav>
+        <!-- 5 Section Navigation Tabs -->
+        <nav class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto shrink-0" aria-label="Ítems de la exposición">
+          <button type="button" data-nav="pvi" class="nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-slate-900 text-white shadow-sm whitespace-nowrap">
+            1. P.V.I.
+          </button>
+          <button type="button" data-nav="comparacion" class="nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-600 hover:text-slate-900 whitespace-nowrap">
+            2. Comparación
+          </button>
+          <button type="button" data-nav="geometria" class="nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-600 hover:text-slate-900 whitespace-nowrap">
+            3. Geometría
+          </button>
+          <button type="button" data-nav="calculadora" class="nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-600 hover:text-slate-900 whitespace-nowrap">
+            4. Calculadora
+          </button>
+          <button type="button" data-nav="fuentes" class="nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-600 hover:text-slate-900 whitespace-nowrap">
+            5. Fuentes
+          </button>
+        </nav>
 
-      <div class="site-actions">
-        <button class="icon-btn" id="theme-btn" type="button" aria-label="Cambiar el tema"></button>
-        <button class="icon-btn" id="mode-btn" type="button" aria-label="Modo proyección" aria-pressed="false"></button>
-        <button class="icon-btn" id="help-btn" type="button" aria-label="Ayuda y atajos de teclado" aria-haspopup="dialog"></button>
-        <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-label="Abrir el menú de secciones" aria-controls="site-nav" aria-expanded="false"></button>
+        <!-- Global Slide Mode Controls (Toggle + Arrows for Items 1 to 5) -->
+        <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <button type="button" id="btn-global-slide-mode" class="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-extrabold bg-slate-200 text-slate-800 hover:bg-slate-300 transition flex items-center gap-1.5 whitespace-nowrap" title="Alternar Modo Presentación / Zoom (tecla P)">
+            <span id="slide-mode-icon">🖥️</span>
+            <span id="slide-mode-text">Presentación (P)</span>
+          </button>
+
+          <div id="global-slide-arrows" class="flex items-center gap-1 bg-slate-900 text-white p-1 rounded-xl shadow-sm">
+            <button type="button" id="btn-global-prev" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold transition disabled:opacity-40" title="Ítem anterior (Flecha Izquierda ⬅)">
+              ◀
+            </button>
+            <span id="global-slide-indicator" class="px-1.5 font-mono text-xs font-bold text-amber-300 whitespace-nowrap">
+              1 / 5
+            </span>
+            <button type="button" id="btn-global-next" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold transition disabled:opacity-40" title="Siguiente ítem (Flecha Derecha ➡)">
+              ▶
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </header>
 
-  <main id="app" class="app container" tabindex="-1">
-    <noscript>
-      <p class="stub-note">Esta aplicación necesita JavaScript. Active JavaScript en el navegador y vuelva a cargar la página.</p>
-    </noscript>
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-8 lg:px-10 py-10 sm:py-12 space-y-14 sm:space-y-16">
+
+    <!-- ========================================== -->
+    <!-- SECCIÓN 1: EL P.V.I. Y LOS 3 MÉTODOS       -->
+    <!-- ========================================== -->
+    <section id="sec-pvi" class="main-section space-y-12">
+      <!-- Hero Banner con Integrantes al Principio -->
+      <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 px-7 py-9 sm:px-12 sm:py-12 text-white space-y-8">
+
+          <!-- BLOQUE DESTACADO CON LOS NOMBRES DE LOS EXPOSITORES AL PRINCIPIO -->
+          <div class="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center gap-2.5 sm:gap-3">
+              <span class="px-3.5 py-1.5 rounded-xl bg-amber-400 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-sm font-mono">
+                Grupo 10
+              </span>
+              <span class="px-3 py-1 rounded-lg bg-slate-900/80 text-amber-300 font-extrabold text-xs sm:text-sm uppercase tracking-wider border border-slate-700">
+                Expositores
+              </span>
+              <span class="text-slate-300 text-xs sm:text-sm font-medium">
+                Cátedras de Modelos Numéricos, Análisis Numérico y Cálculo Avanzado · UTN FRLP
+              </span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2.5 sm:gap-3">
+              <span class="px-4 py-2 rounded-xl bg-slate-900/90 border border-slate-700 text-white font-bold text-sm sm:text-base shadow-sm">
+                Biscayart Bautista
+              </span>
+              <span class="px-4 py-2 rounded-xl bg-slate-900/90 border border-slate-700 text-white font-bold text-sm sm:text-base shadow-sm">
+                Maya Santino
+              </span>
+              <span class="px-4 py-2 rounded-xl bg-slate-900/90 border border-slate-700 text-white font-bold text-sm sm:text-base shadow-sm">
+                Olivera Milagros
+              </span>
+              <span class="px-4 py-2 rounded-xl bg-slate-900/90 border border-slate-700 text-white font-bold text-sm sm:text-base shadow-sm">
+                Ramljak Zoe
+              </span>
+            </div>
+          </div>
+
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+            <div class="space-y-4 max-w-4xl">
+              <span class="inline-flex items-center gap-2 text-xs sm:text-sm font-bold uppercase tracking-wider text-amber-300 bg-amber-400/10 border border-amber-400/30 px-3.5 py-1.5 rounded-full">
+                Ítem 1 de 5 · Punto de partida y Algoritmos de Paso Simple
+              </span>
+              <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">
+                Resolución Numérica de Problemas de Valor Inicial (P.V.I.)
+              </h2>
+              <p class="text-slate-200 text-base sm:text-lg leading-relaxed">
+                Muchos problemas de ingeniería no pueden resolverse de forma analítica exacta. Los métodos numéricos de <strong class="text-white">un solo paso (paso simple)</strong> permiten hallar una <span class="bg-amber-300 text-slate-950 font-bold px-2 py-0.5 rounded-md">Ordenada Genérica y<sub>n+1</sub></span> para aproximar sucesivamente <span class="font-mono text-amber-200">y₁, y₂, ..., yₙ</span> usando únicamente información del intervalo actual <span class="font-mono text-amber-200">[xₙ ; xₙ₊₁]</span>.
+              </p>
+            </div>
+            <div class="shrink-0 flex flex-col sm:flex-row lg:flex-col gap-3">
+              <button type="button" data-goto="calculadora" class="px-6 py-3.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-base shadow-md transition flex items-center justify-center gap-2.5">
+                <span>Ir a la Calculadora Paralela</span>
+                <span>→</span>
+              </button>
+              <button type="button" data-goto="comparacion" class="px-6 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm transition text-center">
+                Ver Cuadro Comparativo
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Los 4 Elementos del PVI según el Apunte -->
+        <div class="p-7 sm:p-10 bg-slate-50/70 border-b border-slate-200">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-6">
+            <h3 class="text-lg sm:text-xl font-extrabold uppercase tracking-wide text-slate-800">
+              Las 4 cosas que definen todo Problema de Valor Inicial (y que recibe la calculadora)
+            </h3>
+            <span class="text-sm text-slate-500 font-medium">Notación oficial de la cátedra</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold px-2.5 py-1 rounded-md bg-slate-900 text-white">Parámetro 1</span>
+                <span class="text-sm font-mono text-slate-500">Ecuación</span>
+              </div>
+              <div class="text-lg sm:text-xl font-bold text-slate-900 math-box py-1">
+                $y' = f(x, y(x)) = \frac{dy}{dx}$
+              </div>
+              <p class="text-sm sm:text-base text-slate-600 leading-relaxed">
+                Ecuación diferencial de primer orden que indica la pendiente en cualquier punto $(x, y)$.
+              </p>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold px-2.5 py-1 rounded-md bg-slate-900 text-white">Parámetro 2</span>
+                <span class="text-sm font-mono text-slate-500">Punto de arranque</span>
+              </div>
+              <div class="text-lg sm:text-xl font-bold text-slate-900 math-box py-1">
+                $y(x_0) = y_0$
+              </div>
+              <p class="text-sm sm:text-base text-slate-600 leading-relaxed">
+                Condición inicial conocida: nos da la abscisa inicial $x_0$ y su ordenada inicial $y_0$ para $n = 0$.
+              </p>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold px-2.5 py-1 rounded-md bg-slate-900 text-white">Parámetro 3</span>
+                <span class="text-sm font-mono text-slate-500">Intervalo</span>
+              </div>
+              <div class="text-lg sm:text-xl font-bold text-slate-900 math-box py-1">
+                $x_0 \le x \le x_f$
+              </div>
+              <p class="text-sm sm:text-base text-slate-600 leading-relaxed">
+                Dominio de trabajo sobre el eje $x$ desde el valor inicial $x_0$ hasta el valor final buscado $x_f$.
+              </p>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold px-2.5 py-1 rounded-md bg-slate-900 text-white">Parámetro 4</span>
+                <span class="text-sm font-mono text-slate-500">Incremento</span>
+              </div>
+              <div class="text-lg sm:text-xl font-bold text-slate-900 math-box py-1">
+                $h = x_{n+1} - x_n$
+              </div>
+              <p class="text-sm sm:text-base text-slate-600 leading-relaxed">
+                Paso constante para recorrer el dominio ($x_{n+1} = x_n + h$). Define $N = \frac{x_f - x_0}{h}$ iteraciones.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Breve recordatorio: ¿Por qué nacen estos 3 métodos? (Superando a Euler Simple) -->
+        <div class="px-7 py-5 sm:px-10 sm:py-6 bg-amber-50/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div class="text-sm sm:text-base text-slate-800 leading-relaxed">
+            <strong class="font-extrabold text-slate-900">¿Por qué existen estos 3 métodos?</strong>
+            El método básico de <strong>Euler simple</strong> ($y_{n+1} = y_n + h \cdot y_n'$) usa solo la recta tangente al inicio del intervalo y se desvía rápido si la curva dobla. <strong>Taylor de grado 2</strong>, <strong>Euler Mejorado</strong> y <strong>Runge-Kutta de grado 2</strong> son tres estrategias distintas de <em>segundo orden</em> para capturar cómo cambia la pendiente dentro del paso $h$.
+          </div>
+        </div>
+      </div>
+
+      <!-- Las 3 Tarjetas de Introducción Individual -->
+      <div class="space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+          <div class="space-y-1">
+            <h3 class="text-2xl sm:text-3xl font-extrabold text-slate-900">
+              Introducción a los 3 Métodos en Estudio
+            </h3>
+            <p class="text-base sm:text-lg text-slate-600">
+              Fórmulas exactas de cátedra, filosofía de cálculo y cómo construye cada uno su Ordenada Genérica <span class="font-mono font-bold text-slate-800">y<sub>n+1</sub></span>.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 xl:gap-6">
+          <!-- CARD 1: TAYLOR GRADO 2 -->
+          <article class="bg-white rounded-3xl border-2 border-blue-200 shadow-sm flex flex-col overflow-hidden">
+            <div class="bg-blue-600 text-white px-7 py-6 flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold uppercase tracking-wider bg-blue-800/70 px-3 py-1 rounded-md">1. Enfoque Analítico</span>
+                <h4 class="text-xl sm:text-2xl font-extrabold mt-2">Método de Taylor (Grado 2)</h4>
+              </div>
+              <span class="text-3xl font-mono font-bold opacity-90">y''</span>
+            </div>
+
+            <div class="p-5 sm:p-6 flex-1 flex flex-col justify-between space-y-6">
+              <div class="space-y-5">
+                <p class="text-base text-slate-700 leading-relaxed">
+                  <strong>Idea central:</strong> Mejora la recta tangente agregando el término de segundo orden del desarrollo en serie de Taylor. En lugar de evaluar la función en otro punto, <strong>calcula analíticamente cómo se curva la solución</strong> en el propio punto <span class="font-mono font-semibold">(x<sub>n</sub>, y<sub>n</sub>)</span> usando derivadas parciales.
+                </p>
+
+                <div class="bg-blue-50/80 border border-blue-200 rounded-2xl p-3.5 sm:p-4 space-y-3">
+                  <div class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-blue-900">Fórmula de la Cátedra:</div>
+                  <div class="math-box math-formula-hero font-bold text-slate-900 bg-white px-2 py-3 rounded-xl border border-blue-100 text-center shadow-sm">
+                    $$y_{n+1} = y_n + h \cdot y_n' + \frac{h^2}{2!} \cdot y_n''$$
+                  </div>
+                  <div class="math-sub-list text-slate-800 space-y-1.5 pt-1">
+                    <div><strong>donde:</strong></div>
+                    <div>• $y_n' = f(x_n, y(x_n))$</div>
+                    <div>• $y_n'' = \frac{\partial f}{\partial x} + \frac{\partial f}{\partial y} \cdot y_n'$</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-3 pt-4 border-t border-slate-200 text-sm sm:text-base text-slate-700">
+                <div class="flex items-start gap-2.5">
+                  <span class="font-bold text-blue-600 shrink-0">✔ Particularidad:</span>
+                  <span>Requiere derivar parcialmente <span class="font-mono font-semibold">f(x,y)</span> respecto de <span class="font-mono">x</span> y de <span class="font-mono">y</span> antes de empezar a iterar.</span>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <span class="font-bold text-blue-600 shrink-0">✔ En el punto:</span>
+                  <span>Solo evalúa expresiones en <span class="font-mono font-semibold">(x<sub>n</sub>, y<sub>n</sub>)</span>; no calcula puntos intermedios ni futuros.</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- CARD 2: EULER MEJORADO -->
+          <article class="bg-white rounded-3xl border-2 border-emerald-200 shadow-sm flex flex-col overflow-hidden">
+            <div class="bg-emerald-600 text-white px-7 py-6 flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold uppercase tracking-wider bg-emerald-800/70 px-3 py-1 rounded-md">2. Predictor - Corrector</span>
+                <h4 class="text-xl sm:text-2xl font-extrabold mt-2">Método de Euler Mejorado</h4>
+              </div>
+              <span class="text-3xl font-mono font-bold opacity-90">x<sub>n+1</sub></span>
+            </div>
+
+            <div class="p-5 sm:p-6 flex-1 flex flex-col justify-between space-y-6">
+              <div class="space-y-5">
+                <p class="text-base text-slate-700 leading-relaxed">
+                  <strong>Idea central:</strong> Evita el cálculo de derivadas parciales. Primero "predice" un valor provisorio al final del intervalo (<span class="font-mono font-semibold">y<sub>n</sub> + h · y<sub>n</sub>'</span>) como haría Euler simple, evalúa la pendiente allí en <span class="font-mono font-semibold">x<sub>n+1</sub></span>, y luego <strong>promedia la pendiente inicial y la pendiente final</strong>.
+                </p>
+
+                <div class="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-3.5 sm:p-4 space-y-3">
+                  <div class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-emerald-900">Fórmula de la Cátedra:</div>
+                  <div class="math-box math-formula-hero font-bold text-slate-900 bg-white px-2 py-3 rounded-xl border border-emerald-100 text-center shadow-sm">
+                    $$y_{n+1} = y_n + \frac{h}{2!} [y_n' + f(x_{n+1}, y_n + h y_n')]$$
+                  </div>
+                  <div class="math-sub-list text-slate-800 space-y-1.5 pt-1">
+                    <div><strong>donde:</strong></div>
+                    <div>• $y_n' = f(x_n, y(x_n))$ <span class="text-slate-500 font-sans text-xs sm:text-sm">(pendiente inicial)</span></div>
+                    <div>• $f(x_{n+1},\; y_n + h \cdot y_n')$ <span class="text-slate-500 font-sans text-xs sm:text-sm">(pendiente al final)</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-3 pt-4 border-t border-slate-200 text-sm sm:text-base text-slate-700">
+                <div class="flex items-start gap-2.5">
+                  <span class="font-bold text-emerald-600 shrink-0">✔ Particularidad:</span>
+                  <span>No necesita derivar <span class="font-mono font-semibold">f(x,y)</span>. En donde la ecuación original tenía <span class="font-mono">x</span> usa <span class="font-mono">x<sub>n+1</sub></span> y donde tenía <span class="font-mono">y</span> usa <span class="font-mono">y<sub>n</sub> + h·y<sub>n</sub>'</span>.</span>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <span class="font-bold text-emerald-600 shrink-0">✔ En el intervalo:</span>
+                  <span>Toma los dos extremos del paso <span class="font-mono font-semibold">[x<sub>n</sub>, x<sub>n+1</sub>]</span> y usa el promedio de ambas pendientes.</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- CARD 3: RUNGE-KUTTA GRADO 2 -->
+          <article class="bg-white rounded-3xl border-2 border-purple-200 shadow-sm flex flex-col overflow-hidden">
+            <div class="bg-purple-600 text-white px-7 py-6 flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold uppercase tracking-wider bg-purple-800/70 px-3 py-1 rounded-md">3. Enfoque de Punto Medio</span>
+                <h4 class="text-xl sm:text-2xl font-extrabold mt-2">Runge-Kutta de Grado 2 (RK2)</h4>
+              </div>
+              <span class="text-3xl font-mono font-bold opacity-90">k₁/2</span>
+            </div>
+
+            <div class="p-5 sm:p-6 flex-1 flex flex-col justify-between space-y-6">
+              <div class="space-y-5">
+                <p class="text-base text-slate-700 leading-relaxed">
+                  <strong>Idea central:</strong> Tampoco calcula derivadas parciales. En vez de ir hasta el final del paso, usa un incremento auxiliar <span class="font-mono font-semibold">k₁ = h · y<sub>n</sub>'</span> para <strong>pararse exactamente en la mitad del intervalo</strong> <span class="font-mono font-semibold">(x<sub>n</sub> + h/2 ; y<sub>n</sub> + k₁/2)</span> y usa la pendiente en ese centro para dar el salto completo.
+                </p>
+
+                <div class="bg-purple-50/80 border border-purple-200 rounded-2xl p-3.5 sm:p-4 space-y-3">
+                  <div class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-purple-900">Fórmula de la Cátedra:</div>
+                  <div class="math-box math-formula-hero font-bold text-slate-900 bg-white px-2 py-3 rounded-xl border border-purple-100 text-center shadow-sm">
+                    $$y_{n+1} = y_n + h \cdot f\left(x_n + \frac{h}{2},\; y_n + \frac{k_1}{2}\right)$$
+                  </div>
+                  <div class="math-sub-list text-slate-800 space-y-1.5 pt-1">
+                    <div><strong>donde:</strong></div>
+                    <div>• $k_1 = h \cdot f(x_n, y(x_n)) = h \cdot y_n'$</div>
+                    <div>• Evalúa $f$ en el punto medio $\left(x_n + \frac{h}{2},\; y_n + \frac{k_1}{2}\right)$</div>
+                  </div>
+                </div>
+                </div>
+              </div>
+
+              <div class="space-y-3 pt-4 border-t border-slate-200 text-sm sm:text-base text-slate-700">
+                <div class="flex items-start gap-2.5">
+                  <span class="font-bold text-purple-600 shrink-0">✔ Particularidad:</span>
+                  <span>En donde la ecuación original tenía <span class="font-mono">x</span> ahora reemplaza por <span class="font-mono font-semibold">(x<sub>n</sub> + h/2)</span> y donde tenía <span class="font-mono">y</span> reemplaza por <span class="font-mono font-semibold">(y<sub>n</sub> + k₁/2)</span>.</span>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <span class="font-bold text-purple-600 shrink-0">✔ En el intervalo:</span>
+                  <span>Una sola pendiente evaluada en el centro representa todo el intervalo <span class="font-mono font-semibold">[x<sub>n</sub>, x<sub>n+1</sub>]</span>.</span>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- SECCIÓN 2: COMPARACIÓN PROFUNDA            -->
+    <!-- ========================================== -->
+    <section id="sec-comparacion" class="main-section space-y-8 pt-2">
+      <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-7 sm:p-10 space-y-10">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-slate-200 pb-6">
+          <div class="space-y-1.5">
+            <span class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-indigo-600">Ítem 2 de 5 · Análisis Comparativo</span>
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900">
+              Parecidos, Diferencias, Aplicaciones y Ventajas
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              Comparación directa entre Taylor (grado 2), Euler Mejorado y Runge-Kutta (grado 2) usando exclusivamente los conceptos de la cátedra.
+            </p>
+          </div>
+          <!-- Sub-filter pills for presentation focus -->
+          <div class="flex flex-wrap gap-2" role="group" aria-label="Filtro de comparación">
+            <button type="button" data-comp-view="all" class="comp-pill px-4 py-2.5 rounded-xl text-sm font-bold bg-slate-900 text-white transition">
+              Vista Completa
+            </button>
+            <button type="button" data-comp-view="parecidos" class="comp-pill px-4 py-2.5 rounded-xl text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+              Parecidos
+            </button>
+            <button type="button" data-comp-view="diferencias" class="comp-pill px-4 py-2.5 rounded-xl text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+              Matriz de Diferencias
+            </button>
+            <button type="button" data-comp-view="ventajas" class="comp-pill px-4 py-2.5 rounded-xl text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+              Ventajas y Aplicaciones
+            </button>
+          </div>
+        </div>
+
+        <!-- BLOQUE A: PARECIDOS (Qué tienen en común los 3) -->
+        <div id="comp-block-parecidos" class="space-y-5">
+          <h3 class="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-3">
+            <span class="w-8 h-8 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center text-sm font-bold">1</span>
+            <span>¿En qué se parecen los 3 métodos? (Puntos en común)</span>
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+              <div class="text-xs font-extrabold uppercase tracking-wider text-indigo-700">Misma familia</div>
+              <div class="font-extrabold text-slate-900 text-base sm:text-lg">Algoritmos de Paso Simple</div>
+              <p class="text-sm sm:text-base text-slate-600 leading-relaxed">
+                Los tres calculan $y_{n+1}$ usando únicamente información del intervalo actual $[x_n,\; x_{n+1}]$. Ninguno requiere recordar puntos anteriores ($y_{n-1},\; y_{n-2}$) como los métodos de paso múltiple (ej. Adams-Bashforth).
+              </p>
+            </div>
+
+            <div class="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+              <div class="text-xs font-extrabold uppercase tracking-wider text-indigo-700">Mismos 4 datos</div>
+              <div class="font-extrabold text-slate-900 text-base sm:text-lg">Mismo esquema iterativo</div>
+              <p class="text-sm sm:text-base text-slate-600 leading-relaxed">
+                Parten de los mismos 4 elementos ($y'=f(x,y)$, $y(x_0)=y_0$, dominio $[x_0,\; x_f]$ y paso $h$), definen primero una <strong>Ordenada Genérica</strong> y realizan la misma cantidad de iteraciones $n = 0, 1, 2\dots$
+              </p>
+            </div>
+
+            <div class="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+              <div class="text-xs font-extrabold uppercase tracking-wider text-indigo-700">Mismo punto de arranque</div>
+              <div class="font-extrabold text-slate-900 text-base sm:text-lg">Todos calculan primero $y_n'$</div>
+              <p class="text-sm sm:text-base text-slate-600 leading-relaxed">
+                En cada iteración, el primer cálculo dentro del intervalo es siempre evaluar la derivada inicial $y_n' = f(x_n, y_n)$ en el extremo izquierdo del paso.
+              </p>
+            </div>
+
+            <div class="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+              <div class="text-xs font-extrabold uppercase tracking-wider text-indigo-700">Mismo orden de precisión</div>
+              <div class="font-extrabold text-slate-900 text-base sm:text-lg">Precisión de Grado 2</div>
+              <p class="text-sm sm:text-base text-slate-600 leading-relaxed">
+                Tanto Euler Mejorado como RK2 se deducen para imitar la precisión de <strong>Taylor de grado 2</strong> sin tener que derivar. Por eso sus resultados numéricos dan valores tan cercanos entre sí.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- BLOQUE B: MATRIZ DE DIFERENCIAS (Tabla Comparativa Directa) -->
+        <div id="comp-block-diferencias" class="space-y-5">
+          <h3 class="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-3">
+            <span class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-800 flex items-center justify-center text-sm font-bold">2</span>
+            <span>Diferencias clave lado a lado (Tabla Comparativa)</span>
+          </h3>
+          <div class="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
+            <table class="w-full text-left border-collapse text-sm sm:text-base">
+              <thead>
+                <tr class="bg-slate-900 text-white">
+                  <th class="p-5 font-bold w-1/5">Criterio de Comparación</th>
+                  <th class="p-5 font-bold bg-blue-900/80 w-1/4">1. Taylor de Grado 2</th>
+                  <th class="p-5 font-bold bg-emerald-900/80 w-1/4">2. Euler Mejorado</th>
+                  <th class="p-5 font-bold bg-purple-900/80 w-1/4">3. Runge-Kutta de Grado 2</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200 bg-white leading-relaxed">
+                <tr class="hover:bg-slate-50/80">
+                  <td class="p-5 font-bold text-slate-900 bg-slate-50">¿Necesita calcular derivadas parciales?</td>
+                  <td class="p-5 text-blue-950 bg-blue-50/30">
+                    <span class="font-extrabold text-red-600">SÍ.</span> Hay que calcular $\frac{\partial f}{\partial x}$ y $\frac{\partial f}{\partial y}$ para armar $y_n'' = \frac{\partial f}{\partial x} + \frac{\partial f}{\partial y} \cdot y_n'$.
+                  </td>
+                  <td class="p-5 text-emerald-950 bg-emerald-50/30">
+                    <span class="font-extrabold text-emerald-700">NO.</span> Solo usa la función original $f(x, y)$ del enunciado.
+                  </td>
+                  <td class="p-5 text-purple-950 bg-purple-50/30">
+                    <span class="font-extrabold text-purple-700">NO.</span> Solo usa la función original $f(x, y)$ del enunciado.
+                  </td>
+                </tr>
+                <tr class="hover:bg-slate-50/80">
+                  <td class="p-5 font-bold text-slate-900 bg-slate-50">¿Dónde evalúa la ecuación diferencial en cada paso?</td>
+                  <td class="p-5">
+                    Únicamente en el <strong>inicio del paso</strong>: $(x_n, y_n)$, tanto para $y_n'$ como para $y_n''$.
+                  </td>
+                  <td class="p-5">
+                    En los <strong>dos extremos</strong> del paso: inicio $(x_n, y_n)$ y final estimado $(x_{n+1},\; y_n + h \cdot y_n')$.
+                  </td>
+                  <td class="p-5">
+                    En el inicio $(x_n, y_n)$ para $k_1$ y en el <strong>punto medio</strong> $\left(x_n + \frac{h}{2},\; y_n + \frac{k_1}{2}\right)$.
+                  </td>
+                </tr>
+                <tr class="hover:bg-slate-50/80">
+                  <td class="p-5 font-bold text-slate-900 bg-slate-50">Reemplazo en la Ordenada Genérica</td>
+                  <td class="p-5 text-sm sm:text-base">
+                    Suma el término correctivo de aceleración: <span class="font-bold text-blue-700">$+ \frac{h^2}{2!} \cdot y_n''$</span>
+                  </td>
+                  <td class="p-5 text-sm sm:text-base">
+                    Reemplaza $x \to x_{n+1}$ e $y \to y_n + h \cdot y_n'$ y multiplica la suma por $\frac{h}{2!}$.
+                  </td>
+                  <td class="p-5 text-sm sm:text-base">
+                    Calcula $k_1 = h \cdot y_n'$ y reemplaza $x \to x_n + \frac{h}{2}$ e $y \to y_n + \frac{k_1}{2}$.
+                  </td>
+                </tr>
+                <tr class="hover:bg-slate-50/80">
+                  <td class="p-5 font-bold text-slate-900 bg-slate-50">¿Cómo corrige la pendiente de Euler simple?</td>
+                  <td class="p-5">
+                    Agrega la concavidad ($y_n''$) como un polinomio de grado 2 desde el origen del paso.
+                  </td>
+                  <td class="p-5">
+                    Promedia la pendiente de entrada y la pendiente de salida del intervalo (regla trapecial).
+                  </td>
+                  <td class="p-5">
+                    Toma la pendiente en la mitad del recorrido como representante de todo el intervalo.
+                  </td>
+                </tr>
+                <tr class="hover:bg-slate-50/80">
+                  <td class="p-5 font-bold text-slate-900 bg-slate-50">Esfuerzo previo vs. Esfuerzo en cada iteración</td>
+                  <td class="p-5">
+                    <strong>Alto esfuerzo previo</strong> (derivar y simplificar $y_n''$); luego la iteración es directa si la fórmula queda compacta.
+                  </td>
+                  <td class="p-5">
+                    <strong>Cero esfuerzo previo</strong> de derivación; en cada paso se evalúa $f$ dos veces y se suman ambas pendientes.
+                  </td>
+                  <td class="p-5">
+                    <strong>Cero esfuerzo previo</strong> de derivación; requiere un sub-paso intermedio ($k_1$) antes de evaluar el punto medio.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- BLOQUE C: VENTAJAS, APLICACIONES Y COMPARACIÓN EXTRA PARA LA EXPOSICIÓN -->
+        <div id="comp-block-ventajas" class="space-y-6">
+          <h3 class="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-3">
+            <span class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-sm font-bold">3</span>
+            <span>Ventajas de unos sobre otros y cuándo conviene aplicar cada uno</span>
+          </h3>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-7">
+            <!-- Cuándo gana Taylor -->
+            <div class="rounded-2xl border-2 border-blue-200 bg-blue-50/40 p-6 space-y-4">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-extrabold uppercase tracking-wider px-3 py-1 rounded-md bg-blue-600 text-white">Cuándo elegir Taylor</span>
+                <span class="text-sm font-semibold text-blue-800">Polinomios simples</span>
+              </div>
+              <h4 class="font-extrabold text-slate-900 text-lg">Ventajas de Taylor sobre Euler Mejorado y RK2</h4>
+              <ul class="text-sm sm:text-base text-slate-700 space-y-2.5 list-disc pl-5 leading-relaxed">
+                <li><strong>Ordenada Genérica cerrada:</strong> Cuando $f(x,y)$ es polinómica sencilla (ej. $y' = 2xy$ o $y' = -3x^2y$), las derivadas parciales son inmediatas y queda una sola expresión limpia para iterar en calculadora.</li>
+                <li><strong>Fácil de extender a mayor grado:</strong> Si se necesitara aún más precisión en un problema teórico, basta con sumar $\frac{h^3}{3!} \cdot y'''$, mientras que en RK hay que reformular todos los coeficientes.</li>
+                <li><strong>Aplicación ideal:</strong> Resolución manual en papel de EDOs lineales o polinómicas simples donde derivar toma pocos segundos.</li>
+              </ul>
+            </div>
+
+            <!-- Cuándo gana Euler Mejorado -->
+            <div class="rounded-2xl border-2 border-emerald-200 bg-emerald-50/40 p-6 space-y-4">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-extrabold uppercase tracking-wider px-3 py-1 rounded-md bg-emerald-600 text-white">Cuándo elegir Euler Mejorado</span>
+                <span class="text-sm font-semibold text-emerald-800">Intuitivo y sin h/2</span>
+              </div>
+              <h4 class="font-extrabold text-slate-900 text-lg">Ventajas de Euler Mejorado sobre los otros</h4>
+              <ul class="text-sm sm:text-base text-slate-700 space-y-2.5 list-disc pl-5 leading-relaxed">
+                <li><strong>Sobre Taylor:</strong> Si $f(x,y)$ tiene cocientes o raíces (ej. $y' = -xy + 4x/y$ de la guía), derivar por regla del cociente en Taylor es muy propenso a errores algebraicos. Euler Mejorado no deriva nada.</li>
+                <li><strong>Sobre RK2 en cuentas a mano:</strong> Evalúa en $x_{n+1}$ (que a menudo es un número redondo como $0.5$ o $1$) en lugar de $x_n + \frac{h}{2}$, y recicla directamente el paso de Euler simple ($y_n + h \cdot y_n'$).</li>
+                <li><strong>Aplicación ideal:</strong> Problemas donde ya se calculó Euler simple y se desea corregir el error promediando extremos, o funciones donde evaluar en $x_{n+1}$ simplifica las cuentas.</li>
+              </ul>
+            </div>
+
+            <!-- Cuándo gana RK2 -->
+            <div class="rounded-2xl border-2 border-purple-200 bg-purple-50/40 p-6 space-y-4">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-extrabold uppercase tracking-wider px-3 py-1 rounded-md bg-purple-600 text-white">Cuándo elegir RK2</span>
+                <span class="text-sm font-semibold text-purple-800">Estándar programable</span>
+              </div>
+              <h4 class="font-extrabold text-slate-900 text-lg">Ventajas de RK2 sobre Taylor y Euler Mejorado</h4>
+              <ul class="text-sm sm:text-base text-slate-700 space-y-2.5 list-disc pl-5 leading-relaxed">
+                <li><strong>Sobre Taylor:</strong> Es 100% algorítmico para programar en computadora: el programa solo necesita recibir $f(x,y)$ sin saber derivar simbólicamente.</li>
+                <li><strong>Sobre Euler Mejorado:</strong> No necesita proyectar un punto provisorio al final del intervalo; además, su estructura de etapas ($k_1$, punto medio) es el fundamento directo para extenderse a Runge-Kutta 4 (RK4), el estándar de la computación científica.</li>
+                <li><strong>Aplicación ideal:</strong> Software de simulación e ingeniería donde $f(x,y)$ es compleja y se busca una estructura modular basada en constantes $k_1$.</li>
+              </ul>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- SECCIÓN 3: MIRADA GEOMÉTRICA EN [xₙ, xₙ₊₁] -->
+    <!-- ========================================== -->
+    <section id="sec-geometria" class="main-section space-y-8 pt-2">
+      <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-7 sm:p-10 space-y-8">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-slate-200 pb-6">
+          <div class="space-y-1.5">
+            <span class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-indigo-600">Ítem 3 de 5 · Interpretación Visual del Paso</span>
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900">
+              ¿Qué hace cada método dentro de un único paso $[x_n,\; x_{n+1}]$?
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              Seleccioná cada método para proyectar cómo construye $y_{n+1}$ a partir de $(x_n, y_n)$ sin agregar conceptos nuevos.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2.5">
+            <button type="button" data-geo="taylor" class="geo-btn px-5 py-3 rounded-2xl text-sm font-bold bg-blue-600 text-white shadow-sm transition">
+              1. Taylor (Curvatura en xₙ)
+            </button>
+            <button type="button" data-geo="euler" class="geo-btn px-5 py-3 rounded-2xl text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+              2. Euler Mejorado (Extremos)
+            </button>
+            <button type="button" data-geo="rk2" class="geo-btn px-5 py-3 rounded-2xl text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+              3. RK2 (Punto Medio)
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          <!-- Interactive SVG Geometric Diagram -->
+          <div class="lg:col-span-7 bg-slate-50 rounded-3xl border border-slate-200 p-6 sm:p-8 flex items-center justify-center">
+            <svg id="geo-svg" viewBox="0 0 600 350" class="w-full h-auto max-h-[440px] select-none" role="img" aria-label="Diagrama geométrico del paso h">
+              <!-- Grid lines -->
+              <defs>
+                <pattern id="smallGrid" width="30" height="30" patternUnits="userSpaceOnUse">
+                  <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+                </pattern>
+              </defs>
+              <rect x="50" y="20" width="510" height="260" fill="url(#smallGrid)" />
+
+              <!-- Axes -->
+              <line x1="50" y1="280" x2="560" y2="280" stroke="#334155" stroke-width="2.5" />
+              <line x1="50" y1="280" x2="50" y2="20" stroke="#334155" stroke-width="2.5" />
+
+              <!-- Interval markers x_n, x_n + h/2, x_{n+1} -->
+              <line x1="120" y1="20" x2="120" y2="285" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,5" />
+              <line id="geo-mid-line" x1="300" y1="20" x2="300" y2="285" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="4,4" class="hidden" />
+              <line x1="480" y1="20" x2="480" y2="285" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,5" />
+
+              <!-- Labels on X axis -->
+              <text x="120" y="306" text-anchor="middle" class="text-sm font-mono font-bold fill-slate-800">xₙ</text>
+              <text id="geo-mid-label" x="300" y="306" text-anchor="middle" class="text-sm font-mono font-bold fill-purple-700 hidden">xₙ + h/2</text>
+              <text x="480" y="306" text-anchor="middle" class="text-sm font-mono font-bold fill-slate-800">xₙ₊₁ = xₙ + h</text>
+
+              <!-- Step h bracket -->
+              <line x1="120" y1="325" x2="480" y2="325" stroke="#475569" stroke-width="1.5" />
+              <line x1="120" y1="320" x2="120" y2="330" stroke="#475569" stroke-width="1.5" />
+              <line x1="480" y1="320" x2="480" y2="330" stroke="#475569" stroke-width="1.5" />
+              <rect x="260" y="314" width="80" height="22" rx="4" fill="#f8fafc" />
+              <text x="300" y="329" text-anchor="middle" class="text-xs font-mono font-bold fill-slate-700">paso h</text>
+
+              <!-- Exact solution curve (reference background) -->
+              <path d="M 90 250 Q 300 225 510 55" fill="none" stroke="#cbd5e1" stroke-width="4" />
+              <text x="515" y="52" class="text-xs font-sans fill-slate-400 font-bold">Curva real y(x)</text>
+
+              <!-- Base Euler tangent line (always shown as dashed reference) -->
+              <line x1="120" y1="240" x2="480" y2="175" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6,4" />
+              <circle cx="480" cy="175" r="4.5" fill="#94a3b8" />
+              <text x="472" y="195" text-anchor="end" class="text-xs font-mono fill-slate-500">Euler simple: yₙ + h·yₙ'</text>
+
+              <!-- LAYER 1: TAYLOR -->
+              <g id="geo-layer-taylor">
+                <!-- Parabolic arc using y' and y'' at x_n -->
+                <path d="M 120 240 Q 300 207 480 82" fill="none" stroke="#2563eb" stroke-width="4" />
+                <!-- Vertical arrow showing +(h²/2!)y'' correction -->
+                <line x1="480" y1="170" x2="480" y2="90" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="3,3" />
+                <rect x="325" y="114" width="145" height="28" rx="6" fill="#dbeafe" stroke="#93c5fd" />
+                <text x="397" y="133" text-anchor="middle" class="text-xs font-mono font-bold fill-blue-900">+(h²/2!) · yₙ''</text>
+                <circle cx="480" cy="82" r="6.5" fill="#2563eb" stroke="#ffffff" stroke-width="2" />
+                <text x="468" y="74" text-anchor="end" class="text-sm font-mono font-bold fill-blue-700">yₙ₊₁ (Taylor)</text>
+              </g>
+
+              <!-- LAYER 2: EULER MEJORADO -->
+              <g id="geo-layer-euler" class="hidden">
+                <!-- Slope at right endpoint (x_{n+1}, y_n + h*y_n') -->
+                <line x1="430" y1="215" x2="515" y2="107" stroke="#f59e0b" stroke-width="3.5" />
+                <circle cx="480" cy="151" r="5.5" fill="#f59e0b" />
+                <rect x="305" y="140" width="162" height="26" rx="5" fill="#fef3c7" stroke="#fcd34d" />
+                <text x="386" y="157" text-anchor="middle" class="text-xs font-mono font-bold fill-amber-900">f(xₙ₊₁, yₙ + h·yₙ')</text>
+                <!-- Averaged slope line from (x_n, y_n) to y_{n+1} -->
+                <line x1="120" y1="240" x2="480" y2="78" stroke="#059669" stroke-width="4" />
+                <circle cx="480" cy="78" r="6.5" fill="#059669" stroke="#ffffff" stroke-width="2" />
+                <text x="468" y="70" text-anchor="end" class="text-sm font-mono font-bold fill-emerald-700">yₙ₊₁ (Promedio de 2 pendientes)</text>
+              </g>
+
+              <!-- LAYER 3: RK2 -->
+              <g id="geo-layer-rk2" class="hidden">
+                <!-- Half step to midpoint (x_n + h/2, y_n + k1/2) -->
+                <line x1="120" y1="240" x2="300" y2="207.5" stroke="#f59e0b" stroke-width="3.5" />
+                <circle cx="300" cy="207.5" r="6.5" fill="#f59e0b" stroke="#ffffff" stroke-width="2" />
+                <!-- Tangent slope bar at midpoint -->
+                <line x1="255" y1="228" x2="345" y2="187" stroke="#7c3aed" stroke-width="4" />
+                <rect x="190" y="218" width="205" height="26" rx="5" fill="#f3e8ff" stroke="#d8b4fe" />
+                <text x="292" y="235" text-anchor="middle" class="text-xs font-mono font-bold fill-purple-900">Punto medio (xₙ+h/2 ; yₙ+k₁/2)</text>
+                <!-- Full step line parallel to midpoint slope -->
+                <line x1="120" y1="240" x2="480" y2="80" stroke="#7c3aed" stroke-width="4" />
+                <circle cx="480" cy="80" r="6.5" fill="#7c3aed" stroke="#ffffff" stroke-width="2" />
+                <text x="468" y="72" text-anchor="end" class="text-sm font-mono font-bold fill-purple-700">yₙ₊₁ (Con pendiente del centro)</text>
+              </g>
+
+              <!-- Starting point (x_n, y_n) -->
+              <circle cx="120" cy="240" r="6.5" fill="#0f172a" stroke="#ffffff" stroke-width="2" />
+              <text x="112" y="228" text-anchor="end" class="text-sm font-mono font-bold fill-slate-900">(xₙ, yₙ)</text>
+            </svg>
+          </div>
+
+          <!-- Dynamic Explanation Card for Selected Geometry -->
+          <div class="lg:col-span-5 space-y-5" id="geo-explanation-box">
+            <!-- Populated dynamically by JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- SECCIÓN 4: CALCULADORA PARALELA PASO A PASO-->
+    <!-- ========================================== -->
+    <section id="sec-calculadora" class="main-section space-y-8 pt-2">
+      <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        <!-- Calculator Header -->
+        <div class="bg-slate-900 text-white px-7 py-7 sm:px-10 sm:py-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div class="space-y-1.5">
+            <span class="text-xs sm:text-sm font-bold uppercase tracking-wider text-amber-300">Ítem 4 de 5 · Resolución en Paralelo · Estilo Cátedra UTN FRLP</span>
+            <h2 class="text-2xl sm:text-3xl font-extrabold">
+              Calculadora de los 4 Parámetros con Paso a Paso Simultáneo
+            </h2>
+            <p class="text-sm sm:text-base text-slate-300">
+              Ingresá los 4 parámetros del P.V.I. o cargá con un clic cualquiera de los ejercicios del apunte de cátedra y de la Guía de Trabajos Prácticos.
+            </p>
+          </div>
+
+          <!-- Rounding Mode Toggle (Apunte 4 Decimals vs Full Float) -->
+          <div class="flex flex-wrap items-center gap-3 bg-slate-800/90 p-3 rounded-2xl border border-slate-700">
+            <label for="select-rounding" class="text-sm font-semibold text-slate-200 pl-1">Modo de cálculo:</label>
+            <select id="select-rounding" class="bg-slate-950 text-amber-300 text-sm font-bold px-3.5 py-2 rounded-xl border border-slate-700 focus:outline-none focus:border-amber-400">
+              <option value="truncado" selected>Modo Apunte Cátedra (4 dec. truncados — 1.5426, 1.9727)</option>
+              <option value="catedra">Modo Redondeo Estándar (4 dec. redondeados — 1.5427, 1.9728)</option>
+              <option value="exacto">Precisión Completa (6 dec. / sin redondeos intermedios)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Preset Exercises Bar from Uploaded PDFs -->
+        <div class="px-7 py-5 sm:px-10 bg-slate-100 border-b border-slate-200 flex flex-wrap items-center gap-2.5">
+          <span class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-700 mr-2">Ejercicios Precargados:</span>
+          <button type="button" data-preset="amiconi_1_4" class="preset-btn px-4 py-2 rounded-xl text-sm font-bold bg-indigo-600 text-white shadow-sm transition">
+            ★ Apunte Ej. 1 y 4: y' = 2xy (h=0.1, x∈[1, 1.3])
+          </button>
+          <button type="button" data-preset="amiconi_3" class="preset-btn px-4 py-2 rounded-xl text-sm font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition">
+            ★ Apunte Ej. 3 / Guía 2a: y' = -y + x + 1 (h=0.5)
+          </button>
+          <button type="button" data-preset="amiconi_2" class="preset-btn px-4 py-2 rounded-xl text-sm font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition">
+            Apunte Ej. 2: y' = sin(x) + e⁻ˣ (h=0.5)
+          </button>
+          <button type="button" data-preset="guia_1a" class="preset-btn px-4 py-2 rounded-xl text-sm font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition">
+            Guía 1a: y' = -3x²y (h=0.1)
+          </button>
+          <button type="button" data-preset="guia_1b" class="preset-btn px-4 py-2 rounded-xl text-sm font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition">
+            Guía 1b: y' = 0.25·(1 + y²)
+          </button>
+          <button type="button" data-preset="guia_3b" class="preset-btn px-4 py-2 rounded-xl text-sm font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition">
+            Guía 3b: y' = (x + y - 1)²
+          </button>
+          <button type="button" data-preset="guia_3c" class="preset-btn px-4 py-2 rounded-xl text-sm font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition">
+            Guía 3c: y' = x + y²
+          </button>
+          <button type="button" data-preset="lineal_igual" class="preset-btn px-4 py-2 rounded-xl text-sm font-semibold bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200 transition">
+            💡 Caso 3 Métodos Iguales: y' = 2x + 1
+          </button>
+        </div>
+
+        <!-- THE 4 PARAMETERS INPUT FORM -->
+        <form id="calc-form" class="p-6 sm:p-8 bg-slate-50/70 border-b border-slate-200 space-y-6">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            <!-- PARÁMETRO 1: ECUACIÓN DIFERENCIAL -->
+            <div class="bg-white p-5 rounded-2xl border-2 border-slate-200 focus-within:border-indigo-500 transition shadow-sm flex flex-col justify-between space-y-3">
+              <div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <label for="input-fx" class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-800">
+                    1. Ecuación <span class="font-mono text-indigo-600">y' = f(x, y)</span>
+                  </label>
+                  <span class="text-[11px] text-slate-400 font-mono">x, y</span>
+                </div>
+                <div class="flex items-center gap-2 mt-1">
+                  <span class="font-mono font-extrabold text-slate-500 text-base">y' =</span>
+                  <input id="input-fx" type="text" value="2*x*y" required
+                    class="w-full font-mono text-base font-bold text-slate-900 bg-slate-50 px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:bg-white focus:border-indigo-600"
+                    placeholder="Ej: 2*x*y, -y + x + 1" />
+                </div>
+              </div>
+              <p class="calc-meta text-xs text-slate-500 leading-snug">
+                Derivadas automáticas para Taylor.
+              </p>
+            </div>
+
+            <!-- PARÁMETRO 2: CONDICIÓN INICIAL y(x0) = y0 -->
+            <div class="bg-white p-5 rounded-2xl border-2 border-slate-200 focus-within:border-indigo-500 transition shadow-sm flex flex-col justify-between space-y-3">
+              <div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-800">
+                    2. Cond. Inicial <span class="font-mono text-indigo-600">y(x₀) = y₀</span>
+                  </span>
+                </div>
+                <div class="grid grid-cols-2 gap-2.5 mt-1">
+                  <div>
+                    <label for="input-x0" class="block text-[11px] font-bold text-slate-500 font-mono mb-1">x₀ (Inicio)</label>
+                    <input id="input-x0" type="number" step="any" value="1" required
+                      class="w-full font-mono text-base font-bold text-slate-900 bg-slate-50 px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:bg-white focus:border-indigo-600" />
+                  </div>
+                  <div>
+                    <label for="input-y0" class="block text-[11px] font-bold text-slate-500 font-mono mb-1">y₀ = y(x₀)</label>
+                    <input id="input-y0" type="number" step="any" value="1" required
+                      class="w-full font-mono text-base font-bold text-slate-900 bg-slate-50 px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:bg-white focus:border-indigo-600" />
+                  </div>
+                </div>
+              </div>
+              <p class="calc-meta text-xs text-slate-600" id="label-condicion-inicial">
+                Condición: <span class="font-mono font-bold text-slate-900">y(1) = 1</span>
+              </p>
+            </div>
+
+            <!-- PARÁMETRO 3: DOMINIO / VALOR FINAL x_f -->
+            <div class="bg-white p-5 rounded-2xl border-2 border-slate-200 focus-within:border-indigo-500 transition shadow-sm flex flex-col justify-between space-y-3">
+              <div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <label for="input-xf" class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-800">
+                    3. Extremo Final <span class="font-mono text-indigo-600">x<sub>f</sub></span>
+                  </label>
+                </div>
+                <div class="mt-1">
+                  <label for="input-xf" class="block text-[11px] font-bold text-slate-500 font-mono mb-1">Hallar y(x<sub>f</sub>) en:</label>
+                  <input id="input-xf" type="number" step="any" value="1.3" required
+                    class="w-full font-mono text-base font-bold text-slate-900 bg-slate-50 px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:bg-white focus:border-indigo-600" />
+                </div>
+              </div>
+              <p class="calc-meta text-xs text-slate-600" id="label-dominio">
+                Dominio: <span class="font-mono font-bold text-slate-900">[1 ; 1.3]</span>
+              </p>
+            </div>
+
+            <!-- PARÁMETRO 4: PASO h -->
+            <div class="bg-white p-5 rounded-2xl border-2 border-slate-200 focus-within:border-indigo-500 transition shadow-sm flex flex-col justify-between space-y-3">
+              <div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <label for="input-h" class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-800 whitespace-nowrap">
+                    4. Paso <span class="font-mono text-indigo-600 font-bold">(h = Δx)</span>
+                  </label>
+                </div>
+                <div class="space-y-2 mt-1">
+                  <div>
+                    <input id="input-h" type="number" step="any" min="0.001" value="0.1" required
+                      class="w-full font-mono text-base font-bold text-slate-900 bg-slate-50 px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:bg-white focus:border-indigo-600" />
+                  </div>
+                  <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-sm sm:text-base shadow-sm transition flex items-center justify-center gap-2">
+                    <span>⚡</span>
+                    <span>Calcular</span>
+                  </button>
+                </div>
+              </div>
+              <p class="calc-meta text-xs text-slate-600 font-medium" id="label-iteraciones">
+                Total: <strong class="text-indigo-700 font-mono">3 iteraciones</strong>
+              </p>
+            </div>
+          </div>
+
+          <!-- Error Alert Box (if invalid expression or parameters) -->
+          <div id="calc-error-banner" class="hidden rounded-2xl bg-red-50 border-2 border-red-300 px-5 py-4 text-sm sm:text-base text-red-800 font-semibold"></div>
+        </form>
+
+        <!-- ORDENADA GENÉRICA EN PARALELO (Antes de iterar, tal como pide el apunte) -->
+        <div class="p-7 sm:p-10 border-b border-slate-200 bg-white space-y-6">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <span class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-amber-800 bg-amber-100 px-3 py-1 rounded-md">Paso Previo de Cátedra</span>
+              <h3 class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-2">
+                Definición de la «Ordenada Genérica» <span class="font-mono">y<sub>n+1</sub></span> en Paralelo
+              </h3>
+            </div>
+            <p class="text-sm sm:text-base text-slate-600 max-w-xl">
+              En los apuntes de la cátedra, antes de empezar con <span class="font-mono font-semibold">n = 0</span> se reemplaza la ecuación diferencial en la fórmula general de cada método.
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6" id="ordenada-generica-grid">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- RESUMEN EJECUTIVO DE RESULTADOS FINALES Y GRÁFICA ZOOMEABLE -->
+        <div class="p-7 sm:p-10 bg-slate-50 border-b border-slate-200 space-y-8">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+            <!-- Final Values Summary Cards + Table -->
+            <div class="lg:col-span-5 flex flex-col justify-between space-y-6">
+              <div class="space-y-1">
+                <h3 class="text-xl sm:text-2xl font-extrabold text-slate-900">
+                  Comparación de Resultados en <span class="font-mono text-indigo-700" id="summary-xf-label">x = 1.3</span>
+                </h3>
+                <p class="text-sm sm:text-base text-slate-600">
+                  Valores finales hallados tras recorrer el dominio de trabajo paso a paso:
+                </p>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-4" id="final-cards-container">
+                <!-- Populated by JS -->
+              </div>
+
+              <!-- Quick Summary Table across all x_n nodes -->
+              <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                <div class="px-5 py-3.5 bg-slate-800 text-white text-sm font-bold flex items-center justify-between">
+                  <span>Tabla Resumen de Ordenadas <span class="font-mono">y(xₙ)</span></span>
+                  <span class="font-mono text-xs text-slate-300" id="table-mode-badge">Modo Cátedra (4 dec.)</span>
+                </div>
+                <div class="overflow-x-auto max-h-72">
+                  <table class="w-full text-left border-collapse text-sm font-mono">
+                    <thead>
+                      <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
+                        <th class="p-3.5 font-bold">n</th>
+                        <th class="p-3.5 font-bold">xₙ</th>
+                        <th class="p-3.5 font-bold text-blue-700">Taylor (G2)</th>
+                        <th class="p-3.5 font-bold text-emerald-700">Euler Mej.</th>
+                        <th class="p-3.5 font-bold text-purple-700">RK2</th>
+                        <th class="p-3.5 font-bold text-slate-500">Euler Simple</th>
+                      </tr>
+                    </thead>
+                    <tbody id="summary-table-body" class="divide-y divide-slate-100">
+                      <!-- Populated by JS -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Chart.js Trajectory Comparison with Interactive Decimal Zoom -->
+            <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-6 sm:p-7 shadow-sm flex flex-col justify-between space-y-3">
+              <div>
+                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                  <div>
+                    <h4 class="text-base sm:text-lg font-bold text-slate-900">
+                      Solución numérica de cada método
+                    </h4>
+                    <p class="text-xs text-slate-500">
+                      Arrastrá para mover · Shift + arrastrar para recuadro · Ctrl + rueda para zoom
+                    </p>
+                  </div>
+
+                  <div class="chart-actions">
+                    <button type="button" class="chart-tool-btn" id="btn-focus-xf" aria-pressed="false" title="Ampliar el final (separar curvas)">
+                      🔍 Separar curvas
+                    </button>
+                    <button type="button" class="chart-tool-btn" id="btn-chart-reset" title="Restablecer zoom (Vista completa)">
+                      ↺ Restablecer
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Canvas Container -->
+              <div class="relative h-[380px] w-full pt-1">
+                <canvas id="trajectory-chart"></canvas>
+              </div>
+
+              <!-- Decimal Difference Callout Banner under Chart -->
+              <div id="chart-decimal-callout" class="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs sm:text-sm text-slate-800 font-mono flex flex-wrap items-center justify-between gap-2">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DESARROLLO PASO A PASO EN PARALELO (ITERACIÓN POR ITERACIÓN) -->
+        <div class="p-7 sm:p-10 bg-white space-y-8">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-slate-200 pb-6">
+            <div class="space-y-1">
+              <span class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-indigo-600">Desarrollo Completo en 3 Columnas</span>
+              <h3 class="text-2xl sm:text-3xl font-extrabold text-slate-900">
+                Paso a Paso en Paralelo para Cada Iteración
+              </h3>
+              <p class="text-base text-slate-600">
+                Cada tarjeta muestra el reemplazo numérico explícito en la Ordenada Genérica tal como se desarrolla en el apunte de cátedra.
+              </p>
+            </div>
+
+            <!-- Iteration Filter Controls (All vs Single Step) -->
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="inline-flex rounded-2xl bg-slate-100 p-1.5 border border-slate-200">
+                <button type="button" id="btn-view-all-steps" class="px-4 py-2 rounded-xl text-sm font-bold bg-white text-slate-900 shadow-sm transition">
+                  Ver Todas las Iteraciones
+                </button>
+                <button type="button" id="btn-view-one-step" class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-slate-900 transition">
+                  1 Iteración por vez
+                </button>
+              </div>
+
+              <div id="step-stepper-controls" class="hidden items-center gap-2 bg-indigo-50 px-3.5 py-2 rounded-2xl border border-indigo-200">
+                <button type="button" id="btn-prev-iter" class="px-3 py-1.5 rounded-xl bg-white hover:bg-indigo-100 text-indigo-800 font-bold text-sm border border-indigo-200 transition disabled:opacity-40">
+                  ◀ Ant.
+                </button>
+                <span id="label-current-iter" class="text-sm font-mono font-bold text-indigo-950 px-2.5">
+                  Iteración 1 (n=0)
+                </span>
+                <button type="button" id="btn-next-iter" class="px-3 py-1.5 rounded-xl bg-white hover:bg-indigo-100 text-indigo-800 font-bold text-sm border border-indigo-200 transition disabled:opacity-40">
+                  Sig. ▶
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Container for Parallel Step-by-Step Iterations -->
+          <div id="steps-parallel-container" class="space-y-10 pb-16">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- SECCIÓN 5: FUENTES CONSULTADAS Y RÚBRICA   -->
+    <!-- ========================================== -->
+    <section id="sec-fuentes" class="main-section space-y-8 pt-2">
+      <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        <!-- Section Header -->
+        <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white px-7 py-8 sm:px-10 sm:py-10">
+          <div class="space-y-2">
+            <span class="text-xs sm:text-sm font-bold uppercase tracking-wider text-amber-300">
+              Ítem 5 de 5 · Respaldo Académico · Criterio de Rúbrica Web (30%)
+            </span>
+            <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              Fuentes Consultadas, Metodología y Verificación Numérica
+            </h2>
+            <p class="text-slate-300 text-sm sm:text-base max-w-4xl leading-relaxed">
+              Respaldo bibliográfico formal, documentos oficiales de las cátedras de la UTN Facultad Regional La Plata y validación matemática independiente para la defensa de la aplicación web.
+            </p>
+          </div>
+        </div>
+
+        <div class="p-6 sm:p-10 space-y-8">
+          <!-- 1. Documentos de la Cátedra (Citas textuales) -->
+          <div class="space-y-4">
+            <div class="flex items-center gap-2.5 pb-2 border-b border-slate-200">
+              <span class="w-8 h-8 rounded-xl bg-amber-100 text-amber-900 font-extrabold flex items-center justify-center text-sm">1</span>
+              <h3 class="text-lg sm:text-xl font-extrabold text-slate-900">
+                Documentos Oficiales de la Cátedra (UTN FRLP)
+              </h3>
+            </div>
+            
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-sm space-y-2 text-slate-700">
+              <p><strong>Encabezado institucional oficial:</strong> <em>«Cátedras de Modelos Numéricos, Análisis Numérico y Cálculo Avanzado - U.T.N. Facultad Regional La Plata»</em></p>
+              <p><strong>Autoría del apunte teórico-práctico:</strong> <em>«Apunte creado por Ing. Amiconi Diego Federico»</em></p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+              <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
+                <div class="text-xs font-bold text-indigo-600 uppercase tracking-wide">Apunte Teórico-Práctico</div>
+                <h4 class="font-bold text-slate-900 text-sm">Ejercicios resueltos. Tema: Ecuaciones Diferenciales Ordinarias (EDO´s): Problemas de valor Inicial</h4>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                  Contiene los 4 problemas resueltos paso a paso con Taylor G2, Euler, Euler Mejorado y RK2 (punto medio). Fuente de las fórmulas de la Ordenada Genérica, la notación oficial y los pasos intermedios.
+                </p>
+              </div>
+
+              <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
+                <div class="text-xs font-bold text-emerald-600 uppercase tracking-wide">Guía de Trabajos Prácticos Nº 5</div>
+                <h4 class="font-bold text-slate-900 text-sm">Práctica de Ecuaciones Diferenciales Ordinarias (Problemas de Valor Inicial)</h4>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                  Ejercicios con Taylor de grado 2, Euler y Euler Mejorado. Integra el banco de problemas precargados de la calculadora paralela.
+                </p>
+              </div>
+
+              <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
+                <div class="text-xs font-bold text-purple-600 uppercase tracking-wide">Guía TP (2ª Parte)</div>
+                <h4 class="font-bold text-slate-900 text-sm">Práctica de Ecuaciones Diferenciales Ordinarias (2º Parte) y Problemas de Contorno</h4>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                  Ejercicios de valor inicial para Runge-Kutta de 2º orden. (Los problemas de contorno de esta guía quedan fuera del alcance del presente trabajo).
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Bibliografía Formal de Referencia -->
+          <div class="space-y-4">
+            <div class="flex items-center gap-2.5 pb-2 border-b border-slate-200">
+              <span class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-900 font-extrabold flex items-center justify-center text-sm">2</span>
+              <h3 class="text-lg sm:text-xl font-extrabold text-slate-900">
+                Bibliografía Formal y Textos de Referencia
+              </h3>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-1.5">
+                <h4 class="font-extrabold text-slate-900 text-sm sm:text-base">Burden, R. L., & Faires, J. D. (2011)</h4>
+                <p class="text-xs font-bold text-slate-500 uppercase">Análisis Numérico (9ª Edición) · Cengage Learning</p>
+                <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                  Capítulo 5: Problemas de Valor Inicial para Ecuaciones Diferenciales Ordinarias. Fundamentación matemática rigurosa del método de Taylor, métodos de Runge-Kutta y análisis de error local de truncamiento \(O(h^2)\).
+                </p>
+              </div>
+
+              <div class="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-1.5">
+                <h4 class="font-extrabold text-slate-900 text-sm sm:text-base">Chapra, S. C., & Canale, R. P. (2015)</h4>
+                <p class="text-xs font-bold text-slate-500 uppercase">Métodos Numéricos para Ingenieros (7ª Edición) · McGraw-Hill</p>
+                <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                  Parte 6: Ecuaciones Diferenciales Ordinarias. Comparación geométrica entre el método de Heun (Euler Mejorado / predictor-corrector) y el método del Punto Medio (Runge-Kutta de 2º orden).
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Fe de Erratas y Verificación Numérica Independiente -->
+          <div class="space-y-4">
+            <div class="flex items-center gap-2.5 pb-2 border-b border-slate-200">
+              <span class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-900 font-extrabold flex items-center justify-center text-sm">3</span>
+              <h3 class="text-lg sm:text-xl font-extrabold text-slate-900">
+                Fe de Erratas Histórica del Apunte Impreso y Verificación
+              </h3>
+            </div>
+
+            <div class="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-sm text-amber-950 space-y-3">
+              <div class="flex items-center gap-2 font-extrabold text-amber-900">
+                <span>⚠️</span>
+                <span>Notas técnicas para la defensa frente al tribunal:</span>
+              </div>
+              <ul class="list-disc list-inside space-y-2 text-xs sm:text-sm leading-relaxed text-slate-800">
+                <li>
+                  <strong>Truncado vs. Redondeo en el apunte:</strong> El apunte original impreso truncó las cifras a 4 decimales al transcribirlas (por ejemplo, \(1.542666 \to 1.5426\) y \(1.972761 \to 1.9727\) en Taylor; \(1.545274 \to 1.5452\) y \(1.977951 \to 1.9779\) en RK2), en lugar de redondear a \(1.5427\), \(1.9728\), \(1.5453\) y \(1.9780\). La calculadora incluye un selector que permite reproducir ambos comportamientos con exactitud.
+                </li>
+                <li>
+                  <strong>Erratas de imprenta detectadas en los ejemplos del apunte impreso:</strong>
+                  <br>• En el <em>Ejemplo 2 (Euler simple en \(y' = \sin(x) + e^{-x}\))</em>, el apunte impreso dice \(1.4297\), pero la evaluación aritmética paso a paso da \(1.0430\).
+                  <br>• En el <em>Ejemplo 3 (Euler Mejorado en \(y' = -y + x + 1\))</em>, el apunte impreso imprime \(1.4843\), mientras que el cálculo riguroso del predictor-corrector da \(1.3906\).
+                </li>
+                <li>
+                  <strong>Teorema de Coincidencia de los 3 métodos:</strong> Los 3 métodos de 2º orden (Taylor G2, Euler Mejorado y RK2) generan exactamente la misma Ordenada Genérica para cualquier EDO lineal de la forma \(y' = a x + b y + c\) con coeficientes constantes.
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- 4. Datos del Grupo y Entrega -->
+          <div class="bg-slate-900 text-white rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="space-y-1">
+              <div class="text-xs uppercase font-extrabold text-amber-400 tracking-wider">Presentación de Cátedra · Rúbrica Web</div>
+              <div class="text-base font-bold">Grupo 10 · U.T.N. Facultad Regional La Plata</div>
+              <div class="text-xs text-slate-400">Expositores: Biscayart Bautista · Maya Santino · Olivera Milagros · Ramljak Zoe</div>
+            </div>
+            <div class="flex items-center gap-3">
+              <button type="button" data-goto="pvi" class="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs sm:text-sm transition">
+                Volver al Ítem 1 (Inicio)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
-  <div id="route-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
-  <footer class="site-footer">
-    <div class="site-footer__inner container" id="footer-meta"></div>
+  <!-- Footer -->
+  <footer class="bg-slate-900 text-slate-400 py-8 px-4 sm:px-8 lg:px-10 border-t border-slate-800 mt-14">
+    <div class="max-w-[1500px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="px-2.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-xs uppercase font-mono">Grupo 10</span>
+        <div>
+          <strong class="text-white">Expositores:</strong> Biscayart Bautista · Maya Santino · Olivera Milagros · Ramljak Zoe
+        </div>
+      </div>
+      <div>
+        <strong class="text-white">UTN FRLP</strong> · Cátedras de Modelos Numéricos, Análisis Numérico y Cálculo Avanzado
+      </div>
+    </div>
   </footer>
 
-  <!-- Classic scripts only: ES modules are blocked on file://. Order matters (see README). -->
-  <script src="js/config.js"></script>
-  <script src="js/deps.js"></script>
+  <!-- ========================================== -->
+  <!-- JAVASCRIPT APPLICATION LOGIC               -->
+  <!-- ========================================== -->
+  <script>
+    // ---------------------------------------------------------
+    // 0. KATEX TYPOGRAPHY RENDERING HELPER
+    // ---------------------------------------------------------
+    function renderMath(targetElement) {
+      const root = targetElement || document.body;
+      if (typeof window.renderMathInElement === 'function') {
+        try {
+          window.renderMathInElement(root, {
+            delimiters: [
+              { left: '$$', right: '$$', display: true },
+              { left: '\\[', right: '\\]', display: true },
+              { left: '\\(', right: '\\)', display: false },
+              { left: '$', right: '$', display: false }
+            ],
+            throwOnError: false,
+            ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'option', 'input']
+          });
+        } catch (e) {
+          console.warn('KaTeX render warning:', e);
+        }
+      }
+    }
+    window.renderMath = renderMath;
 
-  <script src="js/numerics/expr.js"></script>
-  <script src="js/numerics/format.js"></script>
-  <script src="js/numerics/problems.js"></script>
-  <script src="js/numerics/methods.js"></script>
-  <script src="js/numerics/analysis.js"></script>
+    // ---------------------------------------------------------
+    // 1. PRESETS FROM AMICONI'S HANDOUT & UTN FRLP PRACTICE PDF
+    // ---------------------------------------------------------
+    const PRESETS = {
+      amiconi_1_4: {
+        name: "Apunte Ej. 1 y 4 / Guía 1c y 3a: y' = 2xy",
+        fx: "2*x*y",
+        x0: 1,
+        y0: 1,
+        xf: 1.3,
+        h: 0.1,
+        dfdxText: "2 y_n",
+        dfdyText: "2 x_n",
+        yppSimplified: "2 y_n + 4 x_n^2 y_n",
+        taylorGenText: "y_n + h \\cdot [2 x_n y_n] + \\frac{h^2}{2!} \\cdot [2 y_n + 4 x_n^2 y_n]",
+        eulerGenText: "y_n + \\frac{h}{2!} \\cdot [2 x_n y_n + 2 \\cdot x_{n+1} \\cdot (y_n + h \\cdot y_n')]",
+        rk2GenText: "y_n + h \\cdot \\left[ 2 \\cdot \\left(x_n + \\frac{h}{2}\\right) \\cdot \\left(y_n + \\frac{k_1}{2}\\right) \\right] \\quad \\text{con } k_1 = h \\cdot (2 x_n y_n)"
+      },
+      amiconi_3: {
+        name: "Apunte Ej. 3 / Guía 2a: y' = -y + x + 1",
+        fx: "-y + x + 1",
+        x0: 0,
+        y0: 1,
+        xf: 1,
+        h: 0.5,
+        dfdxText: "1",
+        dfdyText: "-1",
+        yppSimplified: "1 - (-y_n + x_n + 1) = y_n - x_n",
+        taylorGenText: "y_n + h \\cdot [-y_n + x_n + 1] + \\frac{h^2}{2!} \\cdot [y_n - x_n]",
+        eulerGenText: "y_n + \\frac{h}{2!} \\cdot [(-y_n + x_n + 1) + (-(y_n + h \\cdot y_n') + x_{n+1} + 1)]",
+        rk2GenText: "y_n + h \\cdot \\left[ -(y_n + \\frac{k_1}{2}) + (x_n + \\frac{h}{2}) + 1 \\right] \\quad \\text{con } k_1 = h \\cdot (-y_n + x_n + 1)"
+      },
+      amiconi_2: {
+        name: "Apunte Ej. 2 / Guía 2b: y' = sin(x) + e⁻ˣ",
+        fx: "sin(x) + exp(-x)",
+        x0: 0,
+        y0: 0,
+        xf: 1,
+        h: 0.5,
+        dfdxText: "\\cos(x_n) - e^{-x_n}",
+        dfdyText: "0",
+        yppSimplified: "\\cos(x_n) - e^{-x_n}",
+        taylorGenText: "y_n + h \\cdot [\\sin(x_n) + e^{-x_n}] + \\frac{h^2}{2!} \\cdot [\\cos(x_n) - e^{-x_n}]",
+        eulerGenText: "y_n + \\frac{h}{2!} \\cdot [(\\sin(x_n) + e^{-x_n}) + (\\sin(x_{n+1}) + e^{-x_{n+1}})]",
+        rk2GenText: "y_n + h \\cdot \\left[ \\sin\\left(x_n + \\frac{h}{2}\\right) + e^{-\\left(x_n + \\frac{h}{2}\\right)} \\right]"
+      },
+      guia_1a: {
+        name: "Guía TP Nº 5 - Ej. 1a: y' = -3x²y",
+        fx: "-3*x^2*y",
+        x0: 0,
+        y0: 3,
+        xf: 0.5,
+        h: 0.1,
+        dfdxText: "-6 x_n y_n",
+        dfdyText: "-3 x_n^2",
+        yppSimplified: "-6 x_n y_n + 9 x_n^4 y_n",
+        taylorGenText: "y_n + h \\cdot [-3 x_n^2 y_n] + \\frac{h^2}{2!} \\cdot [-6 x_n y_n + 9 x_n^4 y_n]",
+        eulerGenText: "y_n + \\frac{h}{2!} \\cdot [-3 x_n^2 y_n + (-3 x_{n+1}^2 \\cdot (y_n + h \\cdot y_n'))]",
+        rk2GenText: "y_n + h \\cdot \\left[ -3 \\cdot \\left(x_n + \\frac{h}{2}\\right)^2 \\cdot \\left(y_n + \\frac{k_1}{2}\\right) \\right]"
+      },
+      guia_1b: {
+        name: "Guía TP Nº 5 - Ej. 1b: y' = (1/4)·(1 + y²)",
+        fx: "0.25*(1 + y^2)",
+        x0: 0,
+        y0: 1,
+        xf: 0.5,
+        h: 0.1,
+        dfdxText: "0",
+        dfdyText: "0.5 y_n",
+        yppSimplified: "0.5 y_n \\cdot y_n' = 0.125 y_n \\cdot (1 + y_n^2)",
+        taylorGenText: "y_n + h \\cdot [0.25 \\cdot (1 + y_n^2)] + \\frac{h^2}{2!} \\cdot [0.5 y_n \\cdot y_n']",
+        eulerGenText: "y_n + \\frac{h}{2!} \\cdot [y_n' + 0.25 \\cdot (1 + (y_n + h \\cdot y_n')^2)]",
+        rk2GenText: "y_n + h \\cdot \\left[0.25 \\cdot \\left(1 + (y_n + \\frac{k_1}{2})^2\\right)\\right]"
+      },
+      guia_3b: {
+        name: "Guía TP Nº 5 - Ej. 3b: y' = (x + y - 1)²",
+        fx: "(x + y - 1)^2",
+        x0: 0,
+        y0: 2,
+        xf: 0.5,
+        h: 0.1,
+        dfdxText: "2 \\cdot (x_n + y_n - 1)",
+        dfdyText: "2 \\cdot (x_n + y_n - 1)",
+        yppSimplified: "2 \\cdot (x_n + y_n - 1) \\cdot (1 + y_n')",
+        taylorGenText: "y_n + h \\cdot [(x_n + y_n - 1)^2] + \\frac{h^2}{2!} \\cdot [2 \\cdot (x_n + y_n - 1) \\cdot (1 + y_n')]",
+        eulerGenText: "y_n + \\frac{h}{2!} \\cdot [y_n' + (x_{n+1} + (y_n + h \\cdot y_n') - 1)^2]",
+        rk2GenText: "y_n + h \\cdot \\left[ \\left( \\left(x_n + \\frac{h}{2}\\right) + \\left(y_n + \\frac{k_1}{2}\\right) - 1 \\right)^2 \\right]"
+      },
+      guia_3c: {
+        name: "Guía TP Nº 5 - Ej. 3c: y' = x + y²",
+        fx: "x + y^2",
+        x0: 0,
+        y0: 0,
+        xf: 0.5,
+        h: 0.1,
+        dfdxText: "1",
+        dfdyText: "2 y_n",
+        yppSimplified: "1 + 2 y_n \\cdot (x_n + y_n^2)",
+        taylorGenText: "y_n + h \\cdot [x_n + y_n^2] + \\frac{h^2}{2!} \\cdot [1 + 2 y_n \\cdot y_n']",
+        eulerGenText: "y_n + \\frac{h}{2!} \\cdot [y_n' + (x_{n+1} + (y_n + h \\cdot y_n')^2)]",
+        rk2GenText: "y_n + h \\cdot \\left[\\left(x_n + \\frac{h}{2}\\right) + \\left(y_n + \\frac{k_1}{2}\\right)^2\\right]"
+      },
+      lineal_igual: {
+        name: "Demostración: y' = 2x + 1 (Los 3 métodos dan idéntico)",
+        fx: "2*x + 1",
+        x0: 0,
+        y0: 1,
+        xf: 1,
+        h: 0.25,
+        dfdxText: "2",
+        dfdyText: "0",
+        yppSimplified: "2",
+        taylorGenText: "y_n + h \\cdot [2 x_n + 1] + \\frac{h^2}{2!} \\cdot [2]",
+        eulerGenText: "y_n + \\frac{h}{2!} \\cdot [(2 x_n + 1) + (2 x_{n+1} + 1)]",
+        rk2GenText: "y_n + h \\cdot \\left[ 2 \\cdot \\left(x_n + \\frac{h}{2}\\right) + 1 \\right]"
+      }
+    };
 
-  <script src="js/ui/bus.js"></script>
-  <script src="js/ui/prefs.js"></script>
-  <script src="js/ui/route.js"></script>
-  <script src="js/ui/dom.js"></script>
-  <script src="js/ui/tex.js"></script>
-  <script src="js/ui/charts.js"></script>
-  <script src="js/ui/step-diagram.js"></script>
-  <script src="js/ui/steps-model.js"></script>
-  <script src="js/ui/steps.js"></script>
-  <script src="js/ui/app.js"></script>
+    // ---------------------------------------------------------
+    // 2. GEOMETRIC EXPLANATION DATA
+    // ---------------------------------------------------------
+    const GEO_INFO = {
+      taylor: {
+        badge: "1. Método de Taylor (Grado 2)",
+        colorClass: "border-blue-200 bg-blue-50/50",
+        title: "Se queda en $(x_n, y_n)$ y calcula la curvatura con $y_n''$",
+        formula: "$$y_{n+1} = y_n + h \\cdot y_n' + \\frac{h^2}{2!} \\cdot y_n''$$",
+        bullets: [
+          "Parte del punto conocido $(x_n, y_n)$ y traza primero la dirección tangente $h \\cdot y_n'$ (línea punteada gris).",
+          "Como la solución se curva, corrige la altura sumando el término de segundo orden $+\\frac{h^2}{2!} \\cdot y_n''$.",
+          "Para conocer esa curvatura $y_n''$ sin salir del punto $x_n$, necesita calcular las derivadas parciales $\\frac{\\partial f}{\\partial x}$ y $\\frac{\\partial f}{\\partial y}$."
+        ]
+      },
+      euler: {
+        badge: "2. Método de Euler Mejorado",
+        colorClass: "border-emerald-200 bg-emerald-50/50",
+        title: "Mira los dos extremos del intervalo y promedia las pendientes",
+        formula: "$$y_{n+1} = y_n + \\frac{h}{2!} \\cdot \\left[ y_n' + f(x_{n+1},\\; y_n + h \\cdot y_n') \\right]$$",
+        bullets: [
+          "Primero calcula la pendiente al inicio del paso: $y_n' = f(x_n, y_n)$.",
+          "Hace una predicción hasta el final del paso $(x_{n+1},\\; y_n + h\\cdot y_n')$ y mide qué pendiente habría allí (segmento naranja).",
+          "Promedia la pendiente inicial y la pendiente final (dividiendo por $2!$) y usa esa pendiente promedio (línea verde) para hallar $y_{n+1}$."
+        ]
+      },
+      rk2: {
+        badge: "3. Método de Runge-Kutta de Grado 2",
+        colorClass: "border-purple-200 bg-purple-50/50",
+        title: "Avanza medio paso hasta el centro y usa esa única pendiente",
+        formula: "$$y_{n+1} = y_n + h \\cdot f\\left(x_n + \\frac{h}{2},\\; y_n + \\frac{k_1}{2}\\right)$$",
+        bullets: [
+          "Calcula $k_1 = h \\cdot y_n'$ y avanza solo hasta la mitad del intervalo: $x_n + \\frac{h}{2}$ en abscisa e $y_n + \\frac{k_1}{2}$ en ordenada (punto naranja).",
+          "Evalúa la ecuación diferencial $f$ exactamente en ese punto medio para obtener la pendiente representativa del intervalo.",
+          "Vuelve a $(x_n, y_n)$ y cruza todo el paso $h$ con esa pendiente central (línea violeta)."
+        ]
+      }
+    };
 
-  <script src="js/ui/pages/home/model.js"></script>
-  <script src="js/ui/pages/home.js"></script>
-  <script src="js/ui/pages/theory/data.js"></script>
-  <script src="js/ui/pages/theory/kit.js"></script>
-  <script src="js/ui/pages/theory/sections-a.js"></script>
-  <script src="js/ui/pages/theory/sections-b.js"></script>
-  <script src="js/ui/pages/theory/sections-c.js"></script>
-  <script src="js/ui/pages/theory.js"></script>
-  <script src="js/ui/pages/exercises/data.js"></script>
-  <script src="js/ui/pages/exercises/sections.js"></script>
-  <script src="js/ui/pages/exercises.js"></script>
-  <script src="js/ui/pages/simulator/state.js"></script>
-  <script src="js/ui/pages/simulator/views.js"></script>
-  <script src="js/ui/pages/simulator.js"></script>
-  <script src="js/ui/pages/compare/model.js"></script>
-  <script src="js/ui/pages/compare/views.js"></script>
-  <script src="js/ui/pages/compare.js"></script>
-  <script src="js/ui/pages/audience/quiz.js"></script>
-  <script src="js/ui/pages/audience/model.js"></script>
-  <script src="js/ui/pages/audience.js"></script>
-  <script src="js/ui/pages/sources.js"></script>
-  <script src="js/ui/pages/styleguide.js"></script>
+    // ---------------------------------------------------------
+    // 3. SAFE MATHEMATICAL EXPRESSION PARSER & EVALUATOR
+    // ---------------------------------------------------------
+    function compileMathExpression(rawExpr) {
+      let expr = String(rawExpr || '').trim();
+      if (!expr) throw new Error("La ecuación diferencial no puede estar vacía.");
 
-  <script src="js/ui/start.js"></script>
+      expr = expr
+        .replace(/sen\s*\(/gi, 'sin(')
+        .replace(/tg\s*\(/gi, 'tan(')
+        .replace(/ln\s*\(/gi, 'log(')
+        .replace(/\bt\b/g, 'x')
+        .replace(/(\d)\s*([xy(])/gi, '$1*$2')
+        .replace(/([xy)])\s*(\d)/gi, '$1*$2')
+        .replace(/([xy)])\s*\(/gi, '$1*(')
+        .replace(/\)\s*([xy])/gi, ')*$1')
+        .replace(/x\s*y/gi, 'x*y')
+        .replace(/y\s*x/gi, 'y*x')
+        .replace(/\^/g, '**');
+
+      const allowedFuncs = ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'exp', 'log', 'sqrt', 'abs'];
+      allowedFuncs.forEach(fn => {
+        const reg = new RegExp('\\b' + fn + '\\s*\\(', 'gi');
+        expr = expr.replace(reg, 'Math.' + fn + '(');
+      });
+
+      expr = expr.replace(/\be\b/g, 'Math.E');
+      expr = expr.replace(/\bpi\b/gi, 'Math.PI');
+
+      const fn = new Function('x', 'y', `"use strict"; return (${expr});`);
+      const testVal = fn(1.1, 1.2);
+      if (typeof testVal !== 'number' || Number.isNaN(testVal)) {
+        throw new Error("No se pudo evaluar la expresión en valores de prueba.");
+      }
+      return fn;
+    }
+
+    function computePartials(f, x, y) {
+      const eps = 1e-6;
+      const dfdx = (-f(x + 2 * eps, y) + 8 * f(x + eps, y) - 8 * f(x - eps, y) + f(x - 2 * eps, y)) / (12 * eps);
+      const dfdy = (-f(x, y + 2 * eps) + 8 * f(x, y + eps) - 8 * f(x, y - eps) + f(x, y - 2 * eps)) / (12 * eps);
+      const clean = (v) => (Math.abs(v) < 1e-10 ? 0 : v);
+      return { dfdx: clean(dfdx), dfdy: clean(dfdy) };
+    }
+
+    function roundStep(val, mode) {
+      if (mode === 'catedra') {
+        return Math.round((val + Number.EPSILON) * 10000) / 10000;
+      }
+      return val;
+    }
+
+    function fmtNum(val, decimals = 4) {
+      if (!Number.isFinite(val)) return 'Indef.';
+      const mode = (lastSimulation && lastSimulation.roundingMode) ||
+        (document.getElementById('select-rounding') ? document.getElementById('select-rounding').value : 'truncado');
+
+      if (mode === 'truncado') {
+        const factor = Math.pow(10, decimals);
+        const sign = val < 0 ? -1 : 1;
+        const absVal = Math.abs(val);
+        const truncated = Math.trunc((absVal + 1e-11) * factor) / factor;
+        return Number((sign * truncated).toFixed(decimals)).toString();
+      }
+
+      const rounded = Math.round((val + Number.EPSILON) * Math.pow(10, decimals)) / Math.pow(10, decimals);
+      if (Object.is(rounded, -0)) return '0';
+      return Number(rounded.toFixed(decimals)).toString();
+    }
+
+    // ---------------------------------------------------------
+    // 4. APPLICATION STATE (INCLUDING GLOBAL SLIDE MODE)
+    // ---------------------------------------------------------
+    const SECTIONS = [
+      { key: 'pvi', id: 'sec-pvi', title: '1. El P.V.I. e Introducción' },
+      { key: 'comparacion', id: 'sec-comparacion', title: '2. Comparación Profunda' },
+      { key: 'geometria', id: 'sec-geometria', title: '3. Mirada Geométrica' },
+      { key: 'calculadora', id: 'sec-calculadora', title: '4. Calculadora Paralela' },
+      { key: 'fuentes', id: 'sec-fuentes', title: '5. Fuentes Consultadas' }
+    ];
+
+    let globalSlideMode = true; // Active by default so it's large and navigable with arrows
+    let currentSlideIndex = 0;  // 0 -> Item 1, 1 -> Item 2, 2 -> Item 3, 3 -> Item 4
+
+    let currentPresetKey = 'amiconi_1_4';
+    let currentStepViewMode = 'all';
+    let activeIterationIndex = 0;
+    let lastSimulation = null;
+    let trajectoryChartInstance = null;
+
+    // ---------------------------------------------------------
+    // 5. GLOBAL SLIDE MODE & KEYBOARD NAVIGATION (1, 2, 3, 4)
+    // ---------------------------------------------------------
+    function updateGlobalSlideView(scrollTop = true) {
+      document.documentElement.classList.toggle('slide-mode', globalSlideMode);
+      document.documentElement.setAttribute('data-mode', globalSlideMode ? 'projection' : 'normal');
+      document.body.classList.toggle('slide-mode', globalSlideMode);
+
+      const btnSlideToggle = document.getElementById('btn-global-slide-mode');
+      const slideText = document.getElementById('slide-mode-text');
+      const arrowsBox = document.getElementById('global-slide-arrows');
+
+      if (globalSlideMode) {
+        btnSlideToggle.className = 'px-3 py-1.5 rounded-xl text-xs sm:text-sm font-extrabold bg-indigo-600 text-white shadow-sm hover:bg-indigo-500 transition flex items-center gap-1.5 whitespace-nowrap';
+        slideText.textContent = 'Presentación: ON (P)';
+        btnSlideToggle.title = 'Alternar Modo Presentación / Zoom (tecla P)';
+        arrowsBox.classList.remove('hidden');
+        arrowsBox.classList.add('flex');
+      } else {
+        btnSlideToggle.className = 'px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-200 text-slate-800 hover:bg-slate-300 transition flex items-center gap-1.5 whitespace-nowrap';
+        slideText.textContent = 'Presentación: OFF (P)';
+        btnSlideToggle.title = 'Alternar Modo Presentación / Zoom (tecla P)';
+        arrowsBox.classList.add('hidden');
+        arrowsBox.classList.remove('flex');
+      }
+
+      // Show only current section in slide mode, or all sections in scroll mode
+      SECTIONS.forEach((sec, idx) => {
+        const el = document.getElementById(sec.id);
+        if (!el) return;
+        if (globalSlideMode) {
+          el.classList.toggle('hidden', idx !== currentSlideIndex);
+        } else {
+          el.classList.remove('hidden');
+        }
+      });
+
+      // Update Nav Tabs active state
+      const activeKey = SECTIONS[currentSlideIndex].key;
+      document.querySelectorAll('.nav-tab').forEach(tab => {
+        if (tab.getAttribute('data-nav') === activeKey) {
+          tab.className = 'nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-slate-900 text-white shadow-sm whitespace-nowrap';
+        } else {
+          tab.className = 'nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-600 hover:text-slate-900 whitespace-nowrap';
+        }
+      });
+
+      // Update Indicators & Prev/Next buttons
+      const currentSec = SECTIONS[currentSlideIndex];
+      document.getElementById('global-slide-indicator').textContent = `${currentSlideIndex + 1} / ${SECTIONS.length}`;
+
+      const isFirst = currentSlideIndex === 0;
+      const isLast = currentSlideIndex === SECTIONS.length - 1;
+      document.getElementById('btn-global-prev').disabled = isFirst;
+      document.getElementById('btn-global-next').disabled = isLast;
+
+      if (scrollTop) {
+        if (globalSlideMode) {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          const targetEl = document.getElementById(currentSec.id);
+          if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+
+      // Resize chart if entering slide 4
+      if (currentSlideIndex === 3 && trajectoryChartInstance) {
+        setTimeout(() => {
+          trajectoryChartInstance.resize();
+        }, 60);
+      }
+
+      if (window.renderMath) {
+        setTimeout(() => window.renderMath(), 25);
+      }
+    }
+
+    function goToSlideByKey(secKey) {
+      const idx = SECTIONS.findIndex(s => s.key === secKey);
+      if (idx !== -1) {
+        currentSlideIndex = idx;
+        updateGlobalSlideView(true);
+      }
+    }
+
+    // ---------------------------------------------------------
+    // 6. CORE NUMERICAL SIMULATION (TAYLOR G2, EULER MEJ., RK2)
+    // ---------------------------------------------------------
+    function runSimulation() {
+      const errorBanner = document.getElementById('calc-error-banner');
+      errorBanner.classList.add('hidden');
+
+      const rawFx = document.getElementById('input-fx').value.trim();
+      const x0 = parseFloat(document.getElementById('input-x0').value);
+      const y0 = parseFloat(document.getElementById('input-y0').value);
+      const xf = parseFloat(document.getElementById('input-xf').value);
+      const h = parseFloat(document.getElementById('input-h').value);
+      const roundingMode = document.getElementById('select-rounding').value;
+
+      if ([x0, y0, xf, h].some(v => Number.isNaN(v))) {
+        showError("Por favor ingresá valores numéricos válidos para x₀, y₀, x_f y h.");
+        return;
+      }
+      if (h <= 0) {
+        showError("El paso h debe ser mayor que 0.");
+        return;
+      }
+      if (xf <= x0) {
+        showError("El valor final x_f debe ser mayor que el valor inicial x₀.");
+        return;
+      }
+
+      const rawSteps = (xf - x0) / h;
+      const numSteps = Math.round(rawSteps);
+      if (numSteps < 1 || numSteps > 50) {
+        showError(`Con el dominio [${x0}, ${xf}] y paso h = ${h} resultarían ${numSteps} iteraciones. Elegí un paso h que genere entre 1 y 50 iteraciones.`);
+        return;
+      }
+
+      let f;
+      try {
+        f = compileMathExpression(rawFx);
+      } catch (err) {
+        showError("Error al interpretar la ecuación diferencial: " + err.message);
+        return;
+      }
+
+      // Update parameter labels
+      document.getElementById('label-condicion-inicial').innerHTML =
+        `Condición: <span class="font-mono font-bold text-slate-900">y(${fmtNum(x0)}) = ${fmtNum(y0)}</span>`;
+      document.getElementById('label-dominio').innerHTML =
+        `Dominio: <span class="font-mono font-bold text-slate-900">[${fmtNum(x0)} ; ${fmtNum(xf)}]</span>`;
+      document.getElementById('label-iteraciones').innerHTML =
+        `Total: <strong class="text-indigo-700 font-mono">${numSteps} ${numSteps === 1 ? 'iteración' : 'iteraciones'}</strong>`;
+      document.getElementById('summary-xf-label').textContent = `x = ${fmtNum(xf)}`;
+      document.getElementById('table-mode-badge').textContent =
+        roundingMode === 'truncado' ? 'Modo Apunte Cátedra (4 dec. truncados)' :
+        (roundingMode === 'catedra' ? 'Modo Redondeo Estándar (4 dec.)' : 'Precisión Completa (6 dec.)');
+
+      let yTaylor = y0;
+      let yEulerMej = y0;
+      let yRK2 = y0;
+      let yEulerSimple = y0;
+
+      const nodes = [{
+        n: 0,
+        x: x0,
+        yTaylor: y0,
+        yEulerMej: y0,
+        yRK2: y0,
+        yEulerSimple: y0
+      }];
+
+      const stepsDetail = [];
+
+      for (let n = 0; n < numSteps; n++) {
+        const xn = Math.round((x0 + n * h) * 1e8) / 1e8;
+        const xn1 = Math.round((x0 + (n + 1) * h) * 1e8) / 1e8;
+
+        // --- 1. TAYLOR DE GRADO 2 ---
+        const ynT = yTaylor;
+        const ypT = roundStep(f(xn, ynT), roundingMode);
+        const { dfdx, dfdy } = computePartials(f, xn, ynT);
+        const dfdxR = roundStep(dfdx, roundingMode);
+        const dfdyR = roundStep(dfdy, roundingMode);
+        const yppT = roundStep(dfdxR + dfdyR * ypT, roundingMode);
+        const yn1T = roundStep(ynT + h * ypT + ((h * h) / 2) * yppT, roundingMode);
+
+        // --- 2. EULER MEJORADO ---
+        const ynE = yEulerMej;
+        const ypE = roundStep(f(xn, ynE), roundingMode);
+        const yPredE = roundStep(ynE + h * ypE, roundingMode);
+        const fEndE = roundStep(f(xn1, yPredE), roundingMode);
+        const yn1E = roundStep(ynE + (h / 2) * (ypE + fEndE), roundingMode);
+
+        // --- 3. RUNGE-KUTTA DE GRADO 2 ---
+        const ynR = yRK2;
+        const ypR = roundStep(f(xn, ynR), roundingMode);
+        const k1Raw = h * f(xn, ynR);
+        const k1 = roundingMode === 'catedra' ? Math.round((k1Raw + Number.EPSILON) * 100000) / 100000 : k1Raw;
+        const xMid = Math.round((xn + h / 2) * 1e8) / 1e8;
+        const yMid = ynR + k1 / 2;
+        const fMid = f(xMid, yMid);
+        const yn1R = roundStep(ynR + h * fMid, roundingMode);
+
+        // --- 4. EULER SIMPLE (Referencia) ---
+        const ynS = yEulerSimple;
+        const ypS = roundStep(f(xn, ynS), roundingMode);
+        const yn1S = roundStep(ynS + h * ypS, roundingMode);
+
+        stepsDetail.push({
+          n,
+          iterNumber: n + 1,
+          xn,
+          xn1,
+          h,
+          taylor: {
+            yn: ynT,
+            yp: ypT,
+            dfdx: dfdxR,
+            dfdy: dfdyR,
+            ypp: yppT,
+            yn1: yn1T
+          },
+          eulerMej: {
+            yn: ynE,
+            yp: ypE,
+            yPred: yPredE,
+            fEnd: fEndE,
+            yn1: yn1E
+          },
+          rk2: {
+            yn: ynR,
+            yp: ypR,
+            k1,
+            xMid,
+            yMid,
+            fMid,
+            yn1: yn1R
+          }
+        });
+
+        yTaylor = yn1T;
+        yEulerMej = yn1E;
+        yRK2 = yn1R;
+        yEulerSimple = yn1S;
+
+        nodes.push({
+          n: n + 1,
+          x: xn1,
+          yTaylor,
+          yEulerMej,
+          yRK2,
+          yEulerSimple
+        });
+      }
+
+      lastSimulation = {
+        rawFx,
+        x0,
+        y0,
+        xf,
+        h,
+        numSteps,
+        roundingMode,
+        nodes,
+        stepsDetail
+      };
+
+      if (activeIterationIndex >= stepsDetail.length) {
+        activeIterationIndex = 0;
+      }
+
+      // Populate zoom node dropdown if present
+      const selectZoomNode = document.getElementById('select-zoom-node');
+      if (selectZoomNode) {
+        selectZoomNode.innerHTML = `<option value="all">Vista completa [x₀ a x_f]</option>` +
+          nodes.slice(1).map(nd => `<option value="${nd.n}">Lupa en n=${nd.n} (x = ${fmtNum(nd.x, 3)})</option>`).join('');
+      }
+
+      renderOrdenadaGenerica(rawFx);
+      renderSummaryAndChart('all');
+      renderParallelSteps();
+    }
+
+    function showError(msg) {
+      const errorBanner = document.getElementById('calc-error-banner');
+      errorBanner.textContent = msg;
+      errorBanner.classList.remove('hidden');
+    }
+
+    // ---------------------------------------------------------
+    // 7. RENDER "ORDENADA GENÉRICA" IN PARALLEL
+    // ---------------------------------------------------------
+    function renderOrdenadaGenerica(rawFx) {
+      const container = document.getElementById('ordenada-generica-grid');
+      const preset = PRESETS[currentPresetKey];
+      const matchesPreset = preset && preset.fx.replace(/\s+/g, '') === rawFx.replace(/\s+/g, '');
+
+      const taylorSpecific = matchesPreset
+        ? preset.taylorGenText
+        : `y_n + h \\cdot [${rawFx}] + \\frac{h^2}{2!} \\cdot \\left[\\frac{\\partial f}{\\partial x} + \\frac{\\partial f}{\\partial y}\\cdot y_n'\\right]`;
+
+      const yppSpecific = matchesPreset
+        ? `\\frac{\\partial f}{\\partial x} = ${preset.dfdxText} \\quad\\Big|\\quad \\frac{\\partial f}{\\partial y} = ${preset.dfdyText} \\implies y_n'' = ${preset.yppSimplified}`
+        : `\\text{Se evalúan } \\frac{\\partial f}{\\partial x} \\text{ y } \\frac{\\partial f}{\\partial y} \\text{ en } (x_n, y_n) \\implies y_n'' = \\frac{\\partial f}{\\partial x} + \\frac{\\partial f}{\\partial y}\\cdot y_n'`;
+
+      const eulerSpecific = matchesPreset
+        ? preset.eulerGenText
+        : `y_n + \\frac{h}{2!} \\cdot \\left[ f(x_n, y_n) + f(x_{n+1},\\; y_n + h\\cdot y_n') \\right]`;
+
+      const rk2Specific = matchesPreset
+        ? preset.rk2GenText
+        : `y_n + h \\cdot f\\left(x_n + \\frac{h}{2},\\; y_n + \\frac{k_1}{2}\\right) \\quad \\text{con } k_1 = h \\cdot f(x_n, y_n)`;
+
+      container.innerHTML = `
+        <!-- Ordenada Genérica Taylor -->
+        <div class="rounded-2xl border-2 border-blue-200 bg-blue-50/40 p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs sm:text-sm font-extrabold uppercase text-blue-800">1. Ordenada Genérica · Taylor (G2)</span>
+            <span class="text-xs font-mono bg-blue-100 text-blue-900 px-2.5 py-1 rounded-md font-bold">Usa $y_n''$</span>
+          </div>
+          <div class="text-xs sm:text-sm text-slate-700 bg-white p-3 rounded-xl border border-blue-100 text-center overflow-x-auto scrollbar-none">
+            $$${yppSpecific}$$
+          </div>
+          <div class="p-3.5 rounded-xl bg-amber-100/90 border-2 border-amber-300 font-bold text-slate-900 text-center shadow-sm overflow-x-auto scrollbar-none">
+            $$y_{n+1} = ${taylorSpecific}$$
+          </div>
+        </div>
+
+        <!-- Ordenada Genérica Euler Mejorado -->
+        <div class="rounded-2xl border-2 border-emerald-200 bg-emerald-50/40 p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs sm:text-sm font-extrabold uppercase text-emerald-800">2. Ordenada Genérica · Euler Mejorado</span>
+            <span class="text-xs font-mono bg-emerald-100 text-emerald-900 px-2.5 py-1 rounded-md font-bold">Sin derivar</span>
+          </div>
+          <div class="text-xs sm:text-sm text-slate-700 bg-white p-3 rounded-xl border border-emerald-100 text-center">
+            Reemplaza $x \\to x_{n+1}$ e $y \\to y_n + h \\cdot y_n'$ en $f(x,y)$
+          </div>
+          <div class="p-3.5 rounded-xl bg-amber-100/90 border-2 border-amber-300 font-bold text-slate-900 text-center shadow-sm overflow-x-auto scrollbar-none">
+            $$y_{n+1} = ${eulerSpecific}$$
+          </div>
+        </div>
+
+        <!-- Ordenada Genérica RK2 -->
+        <div class="rounded-2xl border-2 border-purple-200 bg-purple-50/40 p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs sm:text-sm font-extrabold uppercase text-purple-800">3. Ordenada Genérica · Runge-Kutta 2</span>
+            <span class="text-xs font-mono bg-purple-100 text-purple-900 px-2.5 py-1 rounded-md font-bold">Punto medio</span>
+          </div>
+          <div class="text-xs sm:text-sm text-slate-700 bg-white p-3 rounded-xl border border-purple-100 text-center">
+            Reemplaza $x \\to x_n + \\frac{h}{2}$ e $y \\to y_n + \\frac{k_1}{2}$ en $f(x,y)$
+          </div>
+          <div class="p-3.5 rounded-xl bg-amber-100/90 border-2 border-amber-300 font-bold text-slate-900 text-center shadow-sm overflow-x-auto scrollbar-none">
+            $$y_{n+1} = ${rk2Specific}$$
+          </div>
+        </div>
+      `;
+      if (window.renderMath) window.renderMath(container);
+    }
+
+    // ---------------------------------------------------------
+    // 8. RENDER SUMMARY CARDS, TABLE & ZOOMABLE DECIMAL CHART
+    // ---------------------------------------------------------
+    function renderSummaryAndChart(focusTarget = 'all') {
+      if (!lastSimulation) return;
+      const { nodes, xf, roundingMode } = lastSimulation;
+      const finalNode = nodes[nodes.length - 1];
+      const dec = roundingMode === 'exacto' ? 6 : 4;
+
+      // Final Cards
+      const finalCardsContainer = document.getElementById('final-cards-container');
+      finalCardsContainer.innerHTML = `
+        <div class="bg-white p-5 rounded-2xl border-l-4 border-blue-600 border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <div class="text-xs sm:text-sm font-extrabold text-blue-700 uppercase">Taylor de Grado 2</div>
+            <div class="text-sm text-slate-500 font-mono mt-0.5">y(${fmtNum(xf)}) aproximado</div>
+          </div>
+          <div class="text-xl sm:text-2xl font-mono font-extrabold apunte-highlight">
+            ${fmtNum(finalNode.yTaylor, dec)}
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border-l-4 border-emerald-600 border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <div class="text-xs sm:text-sm font-extrabold text-emerald-700 uppercase">Euler Mejorado</div>
+            <div class="text-sm text-slate-500 font-mono mt-0.5">y(${fmtNum(xf)}) aproximado</div>
+          </div>
+          <div class="text-xl sm:text-2xl font-mono font-extrabold apunte-highlight">
+            ${fmtNum(finalNode.yEulerMej, dec)}
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border-l-4 border-purple-600 border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <div class="text-xs sm:text-sm font-extrabold text-purple-700 uppercase">Runge-Kutta de Grado 2</div>
+            <div class="text-sm text-slate-500 font-mono mt-0.5">y(${fmtNum(xf)}) aproximado</div>
+          </div>
+          <div class="text-xl sm:text-2xl font-mono font-extrabold apunte-highlight">
+            ${fmtNum(finalNode.yRK2, dec)}
+          </div>
+        </div>
+      `;
+
+      // Table body
+      const tbody = document.getElementById('summary-table-body');
+      tbody.innerHTML = nodes.map((row, idx) => {
+        const isLast = idx === nodes.length - 1;
+        return `
+          <tr class="${isLast ? 'bg-amber-50/90 font-bold' : 'hover:bg-slate-50'}">
+            <td class="p-3.5 text-slate-500">${row.n}</td>
+            <td class="p-3.5 font-bold text-slate-900">${fmtNum(row.x, 4)}</td>
+            <td class="p-3.5 text-blue-700 font-semibold">${fmtNum(row.yTaylor, dec)}</td>
+            <td class="p-3.5 text-emerald-700 font-semibold">${fmtNum(row.yEulerMej, dec)}</td>
+            <td class="p-3.5 text-purple-700 font-semibold">${fmtNum(row.yRK2, dec)}</td>
+            <td class="p-3.5 text-slate-400">${fmtNum(row.yEulerSimple, dec)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      // Determine nodes/scale for Chart based on focusTarget ('all' or specific node index)
+      const isZoomedNode = focusTarget !== 'all';
+      const targetNodeIndex = isZoomedNode ? parseInt(focusTarget, 10) : nodes.length - 1;
+      const targetNode = nodes[targetNodeIndex] || finalNode;
+
+      // Update Decimal Callout Banner
+      const vals3 = [targetNode.yTaylor, targetNode.yEulerMej, targetNode.yRK2];
+      const min3 = Math.min(...vals3);
+      const max3 = Math.max(...vals3);
+      const spread = max3 - min3;
+
+      document.getElementById('chart-decimal-callout').innerHTML = `
+        <div>
+          <strong>En x = ${fmtNum(targetNode.x, 4)} (n=${targetNode.n}):</strong>
+          <span class="text-blue-700 font-bold ml-2">Taylor = ${fmtNum(targetNode.yTaylor, dec)}</span> ·
+          <span class="text-emerald-700 font-bold ml-2">Euler Mej. = ${fmtNum(targetNode.yEulerMej, dec)}</span> ·
+          <span class="text-purple-700 font-bold ml-2">RK2 = ${fmtNum(targetNode.yRK2, dec)}</span>
+        </div>
+        <div class="bg-amber-200/80 text-amber-950 px-3 py-1 rounded-lg font-bold">
+          Máxima diferencia entre los 3: Δ = ${fmtNum(spread, 6)}
+        </div>
+      `;
+
+      const x0 = nodes[0].x;
+      const hVal = nodes.length >= 2 ? (nodes[1].x - nodes[0].x) : 0.1;
+      const endYs = [finalNode.yTaylor, finalNode.yEulerMej, finalNode.yRK2];
+      const prevYs = nodes.length >= 2 ? [nodes[nodes.length - 2].yTaylor, nodes[nodes.length - 2].yEulerMej, nodes[nodes.length - 2].yRK2] : endYs;
+
+      let xMinOption = x0;
+      let xMaxOption = xf;
+      let yMinOption = undefined;
+      let yMaxOption = undefined;
+
+      if (isZoomedNode) {
+        const yMinVal = Math.min(...endYs);
+        const yMaxVal = Math.max(...endYs);
+        const spreadY = Math.max(0.002, yMaxVal - yMinVal);
+        const padY = spreadY * 0.55;
+        yMinOption = yMinVal - padY;
+        yMaxOption = yMaxVal + padY;
+
+        const avgEnd = endYs.reduce((a, b) => a + b, 0) / endYs.length;
+        const avgPrev = prevYs.reduce((a, b) => a + b, 0) / prevYs.length;
+        const slope = Math.abs((avgEnd - avgPrev) / Math.max(1e-9, hVal));
+        const spanY = yMaxOption - yMinOption;
+        const xActive = slope > 1e-6 ? spanY / slope : hVal * 0.5;
+        const xSpanBefore = Math.min(xf - x0, Math.max(hVal * 0.25, xActive * 1.35));
+        const xSpanAfter = Math.max(hVal * 0.05, xActive * 0.3);
+
+        xMinOption = Math.max(x0, xf - xSpanBefore);
+        xMaxOption = xf + xSpanAfter;
+      }
+
+      const ctx = document.getElementById('trajectory-chart').getContext('2d');
+      if (trajectoryChartInstance) {
+        trajectoryChartInstance.destroy();
+      }
+
+      trajectoryChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          datasets: [
+            {
+              label: 'Taylor (Grado 2)',
+              data: nodes.map(n => ({ x: n.x, y: n.yTaylor })),
+              borderColor: '#2563eb',
+              backgroundColor: '#2563eb',
+              borderWidth: 2.2,
+              pointRadius: isZoomedNode ? 4.5 : 3,
+              pointHoverRadius: 6,
+              tension: 0.15
+            },
+            {
+              label: 'Euler Mejorado',
+              data: nodes.map(n => ({ x: n.x, y: n.yEulerMej })),
+              borderColor: '#059669',
+              backgroundColor: '#059669',
+              borderWidth: 2.2,
+              pointRadius: isZoomedNode ? 4.5 : 3,
+              pointHoverRadius: 6,
+              borderDash: [5, 4],
+              tension: 0.15
+            },
+            {
+              label: 'Runge-Kutta 2 (RK2)',
+              data: nodes.map(n => ({ x: n.x, y: n.yRK2 })),
+              borderColor: '#7c3aed',
+              backgroundColor: '#7c3aed',
+              borderWidth: 2.2,
+              pointRadius: isZoomedNode ? 4.5 : 3,
+              pointHoverRadius: 6,
+              tension: 0.15
+            },
+            {
+              label: 'Euler Simple',
+              data: nodes.map(n => ({ x: n.x, y: n.yEulerSimple })),
+              borderColor: '#94a3b8',
+              backgroundColor: '#94a3b8',
+              borderWidth: 1.8,
+              pointRadius: 2.5,
+              borderDash: [4, 4],
+              hidden: isZoomedNode,
+              tension: 0.1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: {
+            padding: {
+              left: 14,
+              right: 14,
+              top: 6,
+              bottom: 4
+            }
+          },
+          interaction: {
+            mode: 'index',
+            intersect: false
+          },
+          plugins: {
+            legend: {
+              position: 'top',
+              align: 'end',
+              labels: {
+                usePointStyle: false,
+                boxWidth: 18,
+                boxHeight: 2,
+                padding: 12,
+                color: '#334155',
+                font: { family: 'Inter', size: 12, weight: '500' }
+              }
+            },
+            tooltip: {
+              backgroundColor: '#ffffff',
+              titleColor: '#0f172a',
+              bodyColor: '#334155',
+              borderColor: '#cbd5e1',
+              borderWidth: 1,
+              padding: 10,
+              titleFont: { family: 'Inter', size: 12, weight: '600' },
+              bodyFont: { family: 'JetBrains Mono', size: 12 },
+              callbacks: {
+                title: function(items) {
+                  return items && items.length ? `x = ${fmtNum(items[0].parsed.x, 4)}` : '';
+                },
+                label: function(context) {
+                  return `${context.dataset.label}: ${fmtNum(context.parsed.y, 6)}`;
+                }
+              }
+            },
+            zoom: {
+              pan: {
+                enabled: true,
+                mode: 'xy',
+                threshold: 8
+              },
+              zoom: {
+                wheel: {
+                  enabled: true,
+                  modifierKey: 'ctrl',
+                  speed: 0.08
+                },
+                pinch: {
+                  enabled: true
+                },
+                drag: {
+                  enabled: true,
+                  modifierKey: 'shift',
+                  backgroundColor: 'rgba(55, 70, 92, 0.12)',
+                  borderColor: '#6f7c91',
+                  borderWidth: 1,
+                  threshold: 6
+                },
+                mode: 'xy'
+              }
+            }
+          },
+          scales: {
+            x: {
+              type: 'linear',
+              min: xMinOption,
+              max: xMaxOption,
+              title: {
+                display: true,
+                text: 'x',
+                color: '#334155',
+                font: { family: 'Inter', size: 12, weight: '600' }
+              },
+              grid: { color: 'rgba(0, 0, 0, 0.05)' },
+              ticks: {
+                color: '#64748b',
+                font: { family: 'Inter', size: 11 },
+                callback: function(v) {
+                  return fmtNum(v, isZoomedNode ? 3 : 2);
+                }
+              }
+            },
+            y: {
+              type: 'linear',
+              min: yMinOption,
+              max: yMaxOption,
+              title: {
+                display: true,
+                text: 'y',
+                color: '#334155',
+                font: { family: 'Inter', size: 12, weight: '600' }
+              },
+              grid: { color: 'rgba(0, 0, 0, 0.05)' },
+              ticks: {
+                color: '#64748b',
+                font: { family: 'JetBrains Mono', size: 11 },
+                padding: 8,
+                callback: function(value) {
+                  return Number(value).toFixed(isZoomedNode ? 4 : 2);
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // ---------------------------------------------------------
+    // 9. RENDER STEP-BY-STEP IN PARALLEL (3 COLUMNS PER STEP)
+    // ---------------------------------------------------------
+    function renderParallelSteps() {
+      if (!lastSimulation) return;
+      const { stepsDetail, roundingMode } = lastSimulation;
+      const dec = roundingMode === 'exacto' ? 6 : 4;
+      const container = document.getElementById('steps-parallel-container');
+
+      const stepsToShow = currentStepViewMode === 'one'
+        ? [stepsDetail[activeIterationIndex]]
+        : stepsDetail;
+
+      const stepperControls = document.getElementById('step-stepper-controls');
+      if (currentStepViewMode === 'one') {
+        stepperControls.classList.remove('hidden');
+        stepperControls.classList.add('inline-flex');
+        const st = stepsDetail[activeIterationIndex];
+        document.getElementById('label-current-iter').textContent =
+          `Iteración ${st.iterNumber} de ${stepsDetail.length} (n = ${st.n})`;
+        document.getElementById('btn-prev-iter').disabled = activeIterationIndex === 0;
+        document.getElementById('btn-next-iter').disabled = activeIterationIndex === stepsDetail.length - 1;
+      } else {
+        stepperControls.classList.add('hidden');
+        stepperControls.classList.remove('inline-flex');
+      }
+
+      container.innerHTML = stepsToShow.map(step => {
+        const { n, iterNumber, xn, xn1, h, taylor, eulerMej, rk2 } = step;
+        const n1 = n + 1;
+
+        return `
+          <div class="rounded-3xl border-2 border-slate-200 overflow-hidden shadow-sm bg-white">
+            <!-- Iteration Banner -->
+            <div class="bg-slate-800 text-white px-6 py-3.5 sm:px-7 sm:py-4 flex flex-wrap items-center justify-between gap-3">
+              <div class="flex flex-wrap items-center gap-3">
+                <span class="px-3.5 py-1.5 rounded-xl bg-amber-400 text-slate-950 font-mono font-extrabold text-sm">
+                  Iteración Nº ${iterNumber} (Si n = ${n})
+                </span>
+                <span class="text-base sm:text-lg font-bold">
+                  Salto en el dominio: de <span class="font-mono text-amber-300">x<sub>${n}</sub> = ${fmtNum(xn, 4)}</span> hacia <span class="font-mono text-emerald-300">x<sub>${n1}</sub> = x<sub>${n}</sub> + h = ${fmtNum(xn1, 4)}</span>
+                </span>
+              </div>
+              <span class="text-sm font-mono text-slate-300">
+                Paso h = ${fmtNum(h, 4)} · Buscamos hallar y<sub>${n1}</sub> = y(${fmtNum(xn1, 4)})
+              </span>
+            </div>
+
+            <!-- 3-Column Parallel Calculation Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
+
+              <!-- COLUMNA 1: TAYLOR DE GRADO 2 -->
+              <div class="p-4 sm:p-5 space-y-3.5 bg-blue-50/15 flex flex-col justify-between">
+                <div class="space-y-3">
+                  <div class="flex items-center justify-between border-b border-blue-200 pb-2.5 gap-2">
+                    <span class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-blue-700 whitespace-nowrap">1. Taylor (G2)</span>
+                    <span class="text-xs sm:text-sm font-semibold text-slate-700 whitespace-nowrap">$y_{${n}} = ${fmtNum(taylor.yn, dec)}$</span>
+                  </div>
+
+                  <div class="space-y-2.5 text-xs sm:text-sm text-slate-800 slide-step-code">
+                    <div class="bg-white p-3 sm:p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-1">
+                      <div class="text-[11px] font-sans font-bold uppercase tracking-wide text-slate-500">Paso A: Pendiente inicial $y_{${n}}'$</div>
+                      <div class="whitespace-nowrap overflow-x-auto scrollbar-none py-0.5">$y_{${n}}' = f(${fmtNum(xn, 4)},\\; ${fmtNum(taylor.yn, dec)}) = \\mathbf{${fmtNum(taylor.yp, dec)}}$</div>
+                    </div>
+
+                    <div class="bg-white p-3 sm:p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-1">
+                      <div class="text-[11px] font-sans font-bold uppercase tracking-wide text-slate-500">Paso B: Derivada segunda $y_{${n}}''$ en $(x_{${n}}, y_{${n}})$</div>
+                      <div class="whitespace-nowrap overflow-x-auto scrollbar-none py-0.5">$\\frac{\\partial f}{\\partial x} = ${fmtNum(taylor.dfdx, dec)} \\quad\\Big|\\quad \\frac{\\partial f}{\\partial y} = ${fmtNum(taylor.dfdy, dec)}$</div>
+                      <div class="whitespace-nowrap overflow-x-auto scrollbar-none py-0.5 pt-0.5">$y_{${n}}'' = ${fmtNum(taylor.dfdx, dec)} + (${fmtNum(taylor.dfdy, dec)}) \\cdot (${fmtNum(taylor.yp, dec)}) = \\mathbf{${fmtNum(taylor.ypp, dec)}}$</div>
+                    </div>
+
+                    <div class="bg-white p-3 sm:p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-1">
+                      <div class="text-[11px] font-sans font-bold uppercase tracking-wide text-slate-500">Paso C: Reemplazo en la Ordenada Genérica</div>
+                      <div class="whitespace-nowrap overflow-x-auto scrollbar-none py-0.5">$y_{${n1}} = ${fmtNum(taylor.yn, dec)} + ${fmtNum(h, 4)} \\cdot [${fmtNum(taylor.yp, dec)}] + \\frac{(${fmtNum(h, 4)})^2}{2!} \\cdot [${fmtNum(taylor.ypp, dec)}]$</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pt-3 border-t border-blue-100 flex flex-wrap items-center justify-between gap-2">
+                  <span class="text-xs sm:text-sm font-bold text-slate-700">Resultado Taylor:</span>
+                  <span class="apunte-highlight font-mono text-sm sm:text-base">
+                    $y_{${n1}} = \\mathbf{${fmtNum(taylor.yn1, dec)}} = y(${fmtNum(xn1, 4)})$
+                  </span>
+                </div>
+              </div>
+
+              <!-- COLUMNA 2: EULER MEJORADO -->
+              <div class="p-4 sm:p-5 space-y-3.5 bg-emerald-50/15 flex flex-col justify-between">
+                <div class="space-y-3">
+                  <div class="flex items-center justify-between border-b border-emerald-200 pb-2.5 gap-2">
+                    <span class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-emerald-700 whitespace-nowrap">2. Euler Mejorado</span>
+                    <span class="text-xs sm:text-sm font-semibold text-slate-700 whitespace-nowrap">$y_{${n}} = ${fmtNum(eulerMej.yn, dec)}$</span>
+                  </div>
+
+                  <div class="space-y-2.5 text-xs sm:text-sm text-slate-800 slide-step-code">
+                    <div class="bg-white p-3 sm:p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-1">
+                      <div class="text-[11px] font-sans font-bold uppercase tracking-wide text-slate-500">Paso A: Pendiente inicial y predicción $y_{${n}} + h \\cdot y_{${n}}'$</div>
+                      <div class="whitespace-nowrap overflow-x-auto scrollbar-none py-0.5">$y_{${n}}' = f(${fmtNum(xn, 4)},\\; ${fmtNum(eulerMej.yn, dec)}) = \\mathbf{${fmtNum(eulerMej.yp, dec)}}$</div>
+                      <div class="whitespace-nowrap overflow-x-auto scrollbar-none py-0.5 pt-0.5">$y_{${n}} + h \\cdot y_{${n}}' = ${fmtNum(eulerMej.yn, dec)} + ${fmtNum(h, 4)} \\cdot (${fmtNum(eulerMej.yp, dec)}) = \\mathbf{${fmtNum(eulerMej.yPred, dec)}}$</div>
+                    </div>
+
+                    <div class="bg-white p-3 sm:p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-1">
+                      <div class="text-[11px] font-sans font-bold uppercase tracking-wide text-slate-500 whitespace-nowrap">Paso B: Evaluación en $x_{${n1}} = ${fmtNum(xn1, 4)}$</div>
+                      <div class="whitespace-nowrap overflow-x-auto scrollbar-none py-0.5">$f(x_{${n1}},\\; y_{${n}} + h \\cdot y_{${n}}') = f(${fmtNum(xn1, 4)},\\; ${fmtNum(eulerMej.yPred, dec)}) = \\mathbf{${fmtNum(eulerMej.fEnd, dec)}}$</div>
+                    </div>
+
+                    <div class="bg-white p-3 sm:p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-1">
+                      <div class="text-[11px] font-sans font-bold uppercase tracking-wide text-slate-500">Paso C: Reemplazo en la Ordenada Genérica</div>
+                      <div class="whitespace-nowrap overflow-x-auto scrollbar-none py-0.5">$y_{${n1}} = ${fmtNum(eulerMej.yn, dec)} + \\frac{${fmtNum(h, 4)}}{2!} \\cdot [ ${fmtNum(eulerMej.yp, dec)} + (${fmtNum(eulerMej.fEnd, dec)}) ]$</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pt-3 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-2">
+                  <span class="text-xs sm:text-sm font-bold text-slate-700">Resultado Euler Mej.:</span>
+                  <span class="apunte-highlight font-mono text-sm sm:text-base">
+                    $y_{${n1}} = \\mathbf{${fmtNum(eulerMej.yn1, dec)}} = y(${fmtNum(xn1, 4)})$
+                  </span>
+                </div>
+              </div>
+
+              <!-- COLUMNA 3: RUNGE-KUTTA DE GRADO 2 -->
+              <div class="p-4 sm:p-5 space-y-3.5 bg-purple-50/15 flex flex-col justify-between">
+                <div class="space-y-3">
+                  <div class="flex items-center justify-between border-b border-purple-200 pb-2.5 gap-2">
+                    <span class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-purple-700 whitespace-nowrap">3. Runge-Kutta 2</span>
+                    <span class="text-xs sm:text-sm font-semibold text-slate-700 whitespace-nowrap">$y_{${n}} = ${fmtNum(rk2.yn, dec)}$</span>
+                  </div>
+
+                  <div class="space-y-2.5 text-xs sm:text-sm text-slate-800 slide-step-code">
+                    <div class="bg-white p-3 sm:p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-1">
+                      <div class="text-[11px] font-sans font-bold tracking-wide text-slate-500">PASO A: CONSTANTE $k_1 = h \\cdot y_{${n}}'$</div>
+                      <div class="whitespace-nowrap overflow-x-auto scrollbar-none py-0.5">$y_{${n}}' = f(${fmtNum(xn, 4)},\\; ${fmtNum(rk2.yn, dec)}) = ${fmtNum(rk2.yp, dec)}$</div>
+                      <div class="whitespace-nowrap overflow-x-auto scrollbar-none py-0.5 pt-0.5">$k_1 = ${fmtNum(h, 4)} \\cdot (${fmtNum(rk2.yp, dec)}) = \\mathbf{${fmtNum(rk2.k1, 5)}}$</div>
+                    </div>
+
+                    <div class="bg-white p-3 sm:p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-1">
+                      <div class="text-[11px] font-sans font-bold tracking-wide text-slate-500">PASO B: EVALUACIÓN EN PUNTO MEDIO $(x_m, y_m)$</div>
+                      <div class="whitespace-nowrap overflow-x-auto scrollbar-none py-0.5">$x_{${n}} + \\frac{h}{2} = ${fmtNum(rk2.xMid, 4)} \\quad y_{${n}} + \\frac{k_1}{2} = ${fmtNum(rk2.yMid, 5)}$</div>
+                      <div class="whitespace-nowrap overflow-x-auto scrollbar-none py-0.5 pt-0.5">$f(${fmtNum(rk2.xMid, 4)},\\; ${fmtNum(rk2.yMid, 5)}) = \\mathbf{${fmtNum(rk2.fMid, dec)}}$</div>
+                    </div>
+
+                    <div class="bg-white p-3 sm:p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-1">
+                      <div class="text-[11px] font-sans font-bold uppercase tracking-wide text-slate-500">Paso C: Reemplazo en la Ordenada Genérica</div>
+                      <div class="whitespace-nowrap overflow-x-auto scrollbar-none py-0.5">$y_{${n1}} = ${fmtNum(rk2.yn, dec)} + ${fmtNum(h, 4)} \\cdot [ ${fmtNum(rk2.fMid, dec)} ]$</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pt-3 border-t border-purple-100 flex flex-wrap items-center justify-between gap-2">
+                  <span class="text-xs sm:text-sm font-bold text-slate-700">Resultado RK2:</span>
+                  <span class="apunte-highlight font-mono text-sm sm:text-base">
+                    $y_{${n1}} = \\mathbf{${fmtNum(rk2.yn1, dec)}} = y(${fmtNum(xn1, 4)})$
+                  </span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        `;
+      }).join('');
+      if (window.renderMath) window.renderMath(container);
+    }
+
+    // ---------------------------------------------------------
+    // 10. GEOMETRIC DIAGRAM SWITCHER
+    // ---------------------------------------------------------
+    function setGeometryMethod(methodKey) {
+      const info = GEO_INFO[methodKey];
+      if (!info) return;
+
+      document.querySelectorAll('.geo-btn').forEach(btn => {
+        const key = btn.getAttribute('data-geo');
+        if (key === methodKey) {
+          const activeColor = key === 'taylor' ? 'bg-blue-600' : key === 'euler' ? 'bg-emerald-600' : 'bg-purple-600';
+          btn.className = `geo-btn px-5 py-3 rounded-2xl text-sm font-bold text-white shadow-sm transition ${activeColor}`;
+        } else {
+          btn.className = 'geo-btn px-5 py-3 rounded-2xl text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition';
+        }
+      });
+
+      document.getElementById('geo-layer-taylor').classList.toggle('hidden', methodKey !== 'taylor');
+      document.getElementById('geo-layer-euler').classList.toggle('hidden', methodKey !== 'euler');
+      document.getElementById('geo-layer-rk2').classList.toggle('hidden', methodKey !== 'rk2');
+      document.getElementById('geo-mid-line').classList.toggle('hidden', methodKey !== 'rk2');
+      document.getElementById('geo-mid-label').classList.toggle('hidden', methodKey !== 'rk2');
+
+      const box = document.getElementById('geo-explanation-box');
+      box.innerHTML = `
+        <div class="rounded-3xl border-2 ${info.colorClass} p-7 space-y-4">
+          <span class="inline-block text-xs sm:text-sm font-extrabold uppercase tracking-wider px-3 py-1 rounded-lg bg-white border border-slate-200 text-slate-800">
+            ${info.badge}
+          </span>
+          <h3 class="text-xl sm:text-2xl font-extrabold text-slate-900 leading-snug">${info.title}</h3>
+          <div class="p-4 rounded-2xl bg-white border border-slate-200 font-bold text-slate-900 shadow-sm text-center text-lg sm:text-xl">
+            ${info.formula}
+          </div>
+          <ul class="space-y-3 text-sm sm:text-base text-slate-700 list-disc pl-5 leading-relaxed">
+            ${info.bullets.map(b => `<li>${b}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+      if (window.renderMath) window.renderMath(box);
+    }
+
+    // ---------------------------------------------------------
+    // 11. EVENT LISTENERS & INITIALIZATION
+    // ---------------------------------------------------------
+    function loadPreset(presetKey) {
+      const p = PRESETS[presetKey];
+      if (!p) return;
+      currentPresetKey = presetKey;
+
+      document.getElementById('input-fx').value = p.fx;
+      document.getElementById('input-x0').value = p.x0;
+      document.getElementById('input-y0').value = p.y0;
+      document.getElementById('input-xf').value = p.xf;
+      document.getElementById('input-h').value = p.h;
+
+      document.querySelectorAll('.preset-btn').forEach(btn => {
+        if (btn.getAttribute('data-preset') === presetKey) {
+          btn.className = 'preset-btn px-4 py-2 rounded-xl text-sm font-bold bg-indigo-600 text-white shadow-sm transition';
+        } else {
+          btn.className = 'preset-btn px-4 py-2 rounded-xl text-sm font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition';
+        }
+      });
+
+      activeIterationIndex = 0;
+      runSimulation();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // Top nav tabs -> switch item (1, 2, 3, 4)
+      document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          goToSlideByKey(tab.getAttribute('data-nav'));
+        });
+      });
+
+      // Hero shortcut buttons
+      document.querySelectorAll('[data-goto]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          goToSlideByKey(btn.getAttribute('data-goto'));
+        });
+      });
+
+      // Global Slide Mode Toggle
+      document.getElementById('btn-global-slide-mode').addEventListener('click', () => {
+        globalSlideMode = !globalSlideMode;
+        updateGlobalSlideView(false);
+      });
+
+      // Global Prev / Next Buttons (Header & Floating Bar)
+      const prevSlide = () => {
+        if (currentSlideIndex > 0) {
+          currentSlideIndex--;
+          updateGlobalSlideView(true);
+        }
+      };
+      const nextSlide = () => {
+        if (currentSlideIndex < SECTIONS.length - 1) {
+          currentSlideIndex++;
+          updateGlobalSlideView(true);
+        }
+      };
+
+      document.getElementById('btn-global-prev').addEventListener('click', prevSlide);
+      document.getElementById('btn-global-next').addEventListener('click', nextSlide);
+
+      // Keyboard Navigation (P for presentation mode, Arrows and 1-4 for slides)
+      window.addEventListener('keydown', (e) => {
+        const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+        if (e.key === 'p' || e.key === 'P') {
+          e.preventDefault();
+          globalSlideMode = !globalSlideMode;
+          updateGlobalSlideView(false);
+          return;
+        }
+
+        if (e.key >= '1' && e.key <= '5') {
+          e.preventDefault();
+          currentSlideIndex = parseInt(e.key, 10) - 1;
+          updateGlobalSlideView(true);
+          return;
+        }
+
+        if (e.key === 'ArrowRight') {
+          if (currentSlideIndex < SECTIONS.length - 1) {
+            e.preventDefault();
+            nextSlide();
+          }
+        } else if (e.key === 'ArrowLeft') {
+          if (currentSlideIndex > 0) {
+            e.preventDefault();
+            prevSlide();
+          }
+        }
+      });
+
+      // Comparison sub-filter pills
+      document.querySelectorAll('.comp-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+          const view = pill.getAttribute('data-comp-view');
+          document.querySelectorAll('.comp-pill').forEach(p => {
+            p.className = p === pill
+              ? 'comp-pill px-4 py-2.5 rounded-xl text-sm font-bold bg-slate-900 text-white transition'
+              : 'comp-pill px-4 py-2.5 rounded-xl text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition';
+          });
+          document.getElementById('comp-block-parecidos').classList.toggle('hidden', view !== 'all' && view !== 'parecidos');
+          document.getElementById('comp-block-diferencias').classList.toggle('hidden', view !== 'all' && view !== 'diferencias');
+          document.getElementById('comp-block-ventajas').classList.toggle('hidden', view !== 'all' && view !== 'ventajas');
+        });
+      });
+
+
+
+      // Geometry selector buttons
+      document.querySelectorAll('.geo-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          setGeometryMethod(btn.getAttribute('data-geo'));
+        });
+      });
+
+      // Preset buttons
+      document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          loadPreset(btn.getAttribute('data-preset'));
+        });
+      });
+
+      // Calculator form submit & rounding change
+      document.getElementById('calc-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        runSimulation();
+      });
+
+      document.getElementById('select-rounding').addEventListener('change', () => {
+        runSimulation();
+      });
+
+      // Chart Zoom & Decimal Focus Controls (matching main web app)
+      let solutionZoomed = false;
+      const btnFocusXf = document.getElementById('btn-focus-xf');
+      const btnChartReset = document.getElementById('btn-chart-reset');
+
+      if (btnFocusXf) {
+        btnFocusXf.addEventListener('click', () => {
+          if (!lastSimulation) return;
+          solutionZoomed = !solutionZoomed;
+          btnFocusXf.setAttribute('aria-pressed', solutionZoomed ? 'true' : 'false');
+          const lastIdx = lastSimulation.nodes.length - 1;
+          renderSummaryAndChart(solutionZoomed ? String(lastIdx) : 'all');
+        });
+      }
+
+      if (btnChartReset) {
+        btnChartReset.addEventListener('click', () => {
+          solutionZoomed = false;
+          if (btnFocusXf) btnFocusXf.setAttribute('aria-pressed', 'false');
+          if (trajectoryChartInstance && typeof trajectoryChartInstance.resetZoom === 'function') {
+            trajectoryChartInstance.resetZoom();
+          }
+          renderSummaryAndChart('all');
+        });
+      }
+
+      // Step view mode toggles (All steps vs 1 iteration at a time)
+      const btnAllSteps = document.getElementById('btn-view-all-steps');
+      const btnOneStep = document.getElementById('btn-view-one-step');
+
+      btnAllSteps.addEventListener('click', () => {
+        currentStepViewMode = 'all';
+        btnAllSteps.className = 'px-4 py-2 rounded-xl text-sm font-bold bg-white text-slate-900 shadow-sm transition';
+        btnOneStep.className = 'px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-slate-900 transition';
+        renderParallelSteps();
+      });
+
+      btnOneStep.addEventListener('click', () => {
+        currentStepViewMode = 'one';
+        activeIterationIndex = 0;
+        btnOneStep.className = 'px-4 py-2 rounded-xl text-sm font-bold bg-white text-slate-900 shadow-sm transition';
+        btnAllSteps.className = 'px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-slate-900 transition';
+        renderParallelSteps();
+      });
+
+      document.getElementById('btn-prev-iter').addEventListener('click', () => {
+        if (activeIterationIndex > 0) {
+          activeIterationIndex--;
+          renderParallelSteps();
+        }
+      });
+
+      document.getElementById('btn-next-iter').addEventListener('click', () => {
+        if (lastSimulation && activeIterationIndex < lastSimulation.stepsDetail.length - 1) {
+          activeIterationIndex++;
+          renderParallelSteps();
+        }
+      });
+
+      // Initialize geometry, default preset, and global slide mode
+      setGeometryMethod('taylor');
+      loadPreset('amiconi_1_4');
+      updateGlobalSlideView(false);
+      setTimeout(() => {
+        if (window.renderMath) window.renderMath();
+      }, 80);
+    });
+
+    window.addEventListener('load', () => {
+      if (window.renderMath) window.renderMath();
+    });
+  </script>
 </body>
 </html>
