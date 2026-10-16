@@ -616,7 +616,7 @@ describe('the comparison lives on one page', () => {
   it('builds the Comparativa sections in reading order, each with its own id and heading', () => {
     const compare = read('js', 'ui', 'pages', 'compare.js');
     const slugs = [...compare.matchAll(/\n\s{6}section\('([a-z]+)'/g)].map((m) => m[1]);
-    assert.deepEqual(slugs, ['tabla', 'graficos', 'convergencia', 'constantes', 'costo', 'lineal', 'resumen']);
+    assert.deepEqual(slugs, ['tabla', 'graficos', 'resumen', 'convergencia', 'constantes', 'costo', 'lineal']);
   });
 
   it('is linked from the pages that used to carry the comparison', () => {

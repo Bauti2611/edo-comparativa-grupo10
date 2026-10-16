@@ -542,10 +542,37 @@
       },
     }, '↺ Restablecer');
 
+    /** An Ampliación block folded by default: the badge stays on the summary line, so what goes beyond the apunte is still tagged. */
+    const fold = (title, ...children) => h('details', { class: 'disclosure cmp-fold' },
+      h('summary', null, kit.ampliacion(), ' ', title),
+      h('div', { class: 'disclosure__body stack' }, ...children));
+
+    // The thesis of the whole talk, stated first: the pair is one family, Taylor is the contrast. The proof is in
+    // the 'constantes' section below.
+    const thesis = kit.callout({ kind: 'result', label: 'El punto de la comparación' },
+          h('p', null, h('strong', null, 'Euler Mejorado y RK2 son la misma familia con pesos distintos.'),
+            ' Los dos son métodos de Runge-Kutta de dos etapas y orden 2: Euler Mejorado reparte el peso en partes iguales entre las dos pendientes (',
+            kit.im(`a_1 = a_2 = ${FAMILY[0].a2}`), ') y el punto medio se lo da entero a la pendiente intermedia (',
+            kit.im(`a_1 = ${FAMILY[1].a1}`), ', ', kit.im(`a_2 = ${FAMILY[1].a2}`),
+            '). De ahí sale la única diferencia entre sus errores: el coeficiente de ', kit.im('F_2'), '.'),
+          h('p', null, h('strong', null, 'El contraste real es contra Taylor de grado 2.'), ' Taylor llega al mismo orden ',
+            kit.im('O(h^{2})'), ' por otro camino: deriva ', kit.im('f'), ' para usar ', kit.im('y_n\'\''),
+            ' en lugar de evaluar ', kit.im('f'), ' dos veces por paso. Cómo se llaman los tres y por qué se confunden está en ',
+            kit.link('#/teoria/familia', 'Teoría: la familia RK2 y la nomenclatura'), '.'));
+
+    /** The sections in reading order: the answer first, then the evidence that supports it. */
+    const toc = h('nav', { class: 'cmp__toc', 'aria-label': 'En esta página' },
+      h('ul', { class: 'cluster', role: 'list' }, [
+        ['tabla', 'Mismo problema'], ['graficos', 'Soluciones y error'], ['resumen', 'Resumen'],
+        ['convergencia', 'Orden de convergencia'], ['constantes', 'Constante del error'], ['costo', 'Costo y precisión'], ['lineal', 'Caso lineal'],
+      ].map(([slug, label]) => h('li', null, h('a', { href: `#/comparativa/${slug}` }, label)))));
+
     page.appendChild(h('div', { class: 'cmp' },
       h('header', { class: 'cmp__head' },
         h('h1', null, 'Comparativa'),
-        h('p', { class: 'lead' }, 'Los cuatro métodos sobre el mismo problema: qué tan cerca llegan, a qué velocidad mejora el error al reducir h, qué constante decide cuál gana y cuánto cuesta cada uno.')),
+        h('p', { class: 'lead' }, 'Los cuatro métodos sobre el mismo problema: qué tan cerca llegan, a qué velocidad mejora el error al reducir h, qué constante decide cuál gana y cuánto cuesta cada uno.'),
+        thesis,
+        toc),
       h('form', { class: 'cmp__controls', 'aria-label': 'Caso y paso', novalidate: true, onsubmit: (event) => event.preventDefault() },
         h('div', { class: 'field cmp__case' }, h('label', { class: 'field__label', for: caseSelect.id }, 'Caso'), caseSelect),
         refs.hHost,
@@ -561,6 +588,16 @@
         h('div', { class: 'cmp__charts' },
           figure(canvas('solution'), 'Valores de cada método en cada x y la solución exacta (o la referencia).'),
           figure(canvas('error'), 'Error absoluto en cada x, en escala logarítmica (se omite x0, donde el error es cero).'))),
+      section('resumen', 'Resumen',
+        V.summaryTable(h, kit, M.summaryMatrix()),
+        h('p', { class: 'muted cmp__note' }, kit.ampliacion(), ' Las columnas «Orden global» y «Evaluaciones por paso» no figuran en el apunte, que no analiza el error ni el costo.'),
+        fold('Los cuatro métodos sobre los mismos problemas',
+          h('p', null, 'Cada fila es un caso del catálogo comparativo: su ecuación, su condición inicial y el Valor final ',
+            kit.im('x_f'), ', resuelto con el paso del enunciado. Está resaltado, en cada fila, el método de orden 2 más cercano al valor exacto.'),
+          V.overviewTable(h, kit, M.winners(), fTeX)),
+        choose,
+        h('div', { class: 'callout', 'data-kind': 'result' },
+          h('p', { class: 'callout__label' }, 'Conclusiones para este caso'), refs.conclusions)),
       section('convergencia', [kit.ampliacion(), ' Orden de convergencia'],
         h('div', { class: 'prose' },
           h('p', null, 'Cada paso comete un error porque la fórmula descarta términos de la serie de Taylor o aproxima una integral. Conviene distinguir dos:'),
@@ -582,17 +619,6 @@
             h('h3', null, 'Error en el punto final'), refs.errors,
             h('h3', null, 'Orden observado'), refs.orders))),
       section('constantes', [kit.ampliacion(), ' La constante del error local'],
-        // The thesis of the whole talk, stated where it is proved: the pair is one family, Taylor is the contrast.
-        kit.callout({ kind: 'result', label: 'El punto de la comparación' },
-          h('p', null, h('strong', null, 'Euler Mejorado y RK2 son la misma familia con pesos distintos.'),
-            ' Los dos son métodos de Runge-Kutta de dos etapas y orden 2: Euler Mejorado reparte el peso en partes iguales entre las dos pendientes (',
-            kit.im(`a_1 = a_2 = ${FAMILY[0].a2}`), ') y el punto medio se lo da entero a la pendiente intermedia (',
-            kit.im(`a_1 = ${FAMILY[1].a1}`), ', ', kit.im(`a_2 = ${FAMILY[1].a2}`),
-            '). De ahí sale la única diferencia entre sus errores: el coeficiente de ', kit.im('F_2'), '.'),
-          h('p', null, h('strong', null, 'El contraste real es contra Taylor de grado 2.'), ' Taylor llega al mismo orden ',
-            kit.im('O(h^{2})'), ' por otro camino: deriva ', kit.im('f'), ' para usar ', kit.im('y_n\'\''),
-            ' en lugar de evaluar ', kit.im('f'), ' dos veces por paso. Cómo se llaman los tres y por qué se confunden está en ',
-            kit.link('#/teoria/familia', 'Teoría: la familia RK2 y la nomenclatura'), '.')),
         h('div', { class: 'prose' },
           h('p', null, 'Los tres métodos de grado 2 tienen el mismo orden, así que el orden no los distingue: el error de un paso es ',
             kit.im('\\approx C\\,h^{3}'), ' y lo único que cambia es la constante ', kit.im('C'), '. Sean ',
@@ -605,7 +631,7 @@
           ' en RK2 y ', kit.im(COEF.heun.f2), ' en Euler Mejorado). Por eso cuál método queda mejor depende del signo y del tamaño de ',
           kit.im('F_2'), ' frente a ', kit.im('f_y D'), ', es decir, del problema.'),
         refs.constants,
-        kit.extension('De dónde salen esos coeficientes: una sola familia',
+        fold('De dónde salen esos coeficientes: una sola familia',
           h('div', { class: 'prose' },
             h('p', null, 'La forma general de un método de dos etapas es:'),
             kit.formula('y_{n+1} = y_n + h\\,(a_1 k_1 + a_2 k_2), \\qquad k_1 = f(x_n, y_n), \\qquad k_2 = f(x_n + p\\,h,\\ y_n + q\\,h\\,k_1)'),
@@ -636,7 +662,7 @@
               '. También cumple las condiciones de orden 2 y, con ella, el coeficiente de ', kit.im('F_2'), ' vale ',
               kit.im(VARIANT.f2), '; con ', kit.im(`a_2 = ${FAMILY[2].a2}`), ' y ', kit.im(`p = q = ${FAMILY[2].p}`), ' vale ',
               kit.im(FAMILY[2].f2), '.'))),
-        kit.extension('Los casos del catálogo, lado a lado',
+        fold('Los casos del catálogo, lado a lado',
           h('p', null, 'Las mismas constantes en el punto inicial de cada caso comparativo. La última columna es el método de menor ',
             kit.im('|C|'), ', y coincide con el más cercano de la tabla de valores finales mientras las constantes no cambien demasiado a lo largo del intervalo.'),
           V.constantsOverviewTable(h, kit, M.constantsOverview(), fTeX))),
@@ -654,7 +680,7 @@
         (() => {
           const t = M.taylorDegrees();
           const drop = (order) => kit.plain(t.rows.find((r) => r.order === order).drop, 1);
-          return kit.extension('Qué compran esas evaluaciones: Taylor de grados 3 y 4',
+          return fold('Qué compran esas evaluaciones: Taylor de grados 3 y 4',
             h('p', null, 'El apunte presenta solo el grado 2. Si se conservan más términos de la serie se obtienen grados mayores, y las derivadas se obtienen aplicando varias veces el operador de derivada total ',
               kit.im('D(g) = \\frac{\\partial g}{\\partial x} + \\frac{\\partial g}{\\partial y}\\,f'), '. En el ejemplo del apunte, ',
               kit.im(`y''' = ${t.y3TeX}`), ' y ', kit.im(`y^{(4)} = ${t.y4TeX}`), '.'),
@@ -686,23 +712,14 @@
         h('div', { class: 'cmp__charts cmp__charts--stack' },
           figure(canvas('linear'), `Las curvas de Taylor de grado 2, Euler Mejorado y RK2 se superponen (${M.LINEAR.steps} pasos desde y(0) = 1).`),
           refs.linTable),
-        kit.extension('El factor R(z) en el límite de la estabilidad',
+        fold('El factor R(z) en el límite de la estabilidad',
           h('p', null, 'La solución exacta avanza un factor ', kit.im('e^{z}'), ' por paso; el factor de los métodos de orden 2 es su polinomio de Taylor de grado 2. Para ',
             kit.im('\\lambda < 0'), ' la solución exacta decrece, y la calculada decrece solo si ', kit.im('|R(z)| \\le 1'),
             '. Para los cuatro métodos eso ocurre si ', kit.im('-2 \\le z \\le 0'), ': el intervalo de estabilidad real es ',
             kit.im('[-2, 0]'), '. Con un paso demasiado grande para ese ', kit.im('\\lambda'),
             ', los valores calculados crecen aunque la solución exacta tienda a 0.'),
-          V.stabilityTable(h, kit, M.stabilityScan()))),
-      section('resumen', 'Resumen',
-        V.summaryTable(h, kit, M.summaryMatrix()),
-        h('p', { class: 'muted cmp__note' }, kit.ampliacion(), ' Las columnas «Orden global» y «Evaluaciones por paso» no figuran en el apunte, que no analiza el error ni el costo.'),
-        kit.extension('Los cuatro métodos sobre los mismos problemas',
-          h('p', null, 'Cada fila es un caso del catálogo comparativo: su ecuación, su condición inicial y el Valor final ',
-            kit.im('x_f'), ', resuelto con el paso del enunciado. Está resaltado, en cada fila, el método de orden 2 más cercano al valor exacto.'),
-          V.overviewTable(h, kit, M.winners(), fTeX)),
-        choose,
-        h('div', { class: 'callout', 'data-kind': 'result' },
-          h('p', { class: 'callout__label' }, 'Conclusiones para este caso'), refs.conclusions))));
+          V.stabilityTable(h, kit, M.stabilityScan())))
+));
 
     buildHControl();
     updateAll();

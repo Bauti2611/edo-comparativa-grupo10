@@ -1534,6 +1534,17 @@
   gap: var(--space-s);
 }
 
+.cmp__toc ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* An Ampliación block kept closed: wide tables inside must not be capped to the reading measure. */
+.cmp-fold {
+  max-width: none;
+}
+
 .cmp__controls {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

@@ -202,6 +202,35 @@
     return options;
   }
 
+  function defaultZoomPlugin(xType, yType, zoomLimits) {
+    const isXLog = xType === 'logarithmic';
+    const isYLog = yType === 'logarithmic';
+    const limits = Object.assign({}, zoomLimits || {});
+    if (isXLog && !limits.x) limits.x = { min: 1e-6, max: 10 };
+    if (isYLog && !limits.y) limits.y = { min: 1e-12, max: 1e6 };
+    return {
+      zoom: {
+        wheel: { enabled: true, modifierKey: 'ctrl', speed: 0.08 },
+        drag: {
+          enabled: true,
+          modifierKey: 'shift',
+          backgroundColor: 'rgba(55, 70, 92, 0.12)',
+          borderColor: '#6f7c91',
+          borderWidth: 1,
+          threshold: 6,
+        },
+        pinch: { enabled: true },
+        mode: 'xy',
+      },
+      pan: {
+        enabled: true,
+        mode: 'xy',
+        threshold: 8,
+      },
+      limits,
+    };
+  }
+
   function baseOptions(user) {
     const t = theme();
     const font = { family: t.font, size: t.size };
@@ -213,6 +242,9 @@
     });
     const scales = { x: scale(), y: scale() };
     Object.keys((user && user.scales) || {}).forEach((id) => { if (!scales[id]) scales[id] = scale(); });
+    const userScales = (user && user.scales) || {};
+    const xType = userScales.x && userScales.x.type;
+    const yType = userScales.y && userScales.y.type;
     return {
       responsive: true,
       maintainAspectRatio: false,
@@ -241,6 +273,7 @@
             label: (ctx) => `${ctx.dataset.label}: ${fmtValue(ctx.parsed && ctx.parsed.y)}`,
           },
         },
+        zoom: defaultZoomPlugin(xType, yType),
       },
     };
   }
@@ -519,6 +552,6 @@
   if (doc.fonts && typeof doc.fonts.addEventListener === 'function') doc.fonts.addEventListener('loadingdone', refresh);
 
   EDO.charts = {
-    create, methodStyle, dataset, refresh, NOTICE, count: () => live.size,
+    create, methodStyle, dataset, refresh, NOTICE, count: () => live.size, zoomPlugin: defaultZoomPlugin,
   };
 }(typeof window !== 'undefined' ? window : this));
